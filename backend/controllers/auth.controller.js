@@ -16,6 +16,57 @@ const pickPublic = (row) =>
  * 400: ข้อมูลไม่ครบ
  * 401: อีเมล/รหัสผ่านไม่ถูกต้อง
  */
+
+exports.register = async (req, res, next) => {
+  try {
+    const { email, password, name_th, role = 'evaluatee' } = req.body || {};
+
+    // 1) ตรวจ input
+    if (!email || !password || !name_th) {
+      return res.status(400).json({
+        success: false,
+        message: 'email, password, name_th required'
+      });
+    }
+
+    // 2) ตรวจอีเมลซ้ำ
+    const exists = await db('users').where({ email }).first();
+    if (exists) {
+      return res.status(409).json({
+        success: false,
+        message: 'Email already exists'
+      });
+    }
+
+    // 3) Hash password
+    const password_hash = await bcrypt.hash(password, 10);
+
+    // 4) Insert
+    const [insertId] = await db('users').insert({
+      email,
+      password_hash,
+      name_th,
+      role,
+      status: 'active'
+    });
+
+    // 5) อ่านกลับมา
+    const user = await db('users')
+      .select('id', 'name_th', 'email', 'role', 'status', 'created_at')
+      .where({ id: insertId })
+      .first();
+
+    return res.status(201).json({
+      success: true,
+      data: pickPublic(user),
+      message: 'User created successfully'
+    });
+  } catch (e) {
+    next(e);
+  }
+};
+
+
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body || {};

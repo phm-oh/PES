@@ -1,16 +1,34 @@
--- Single-file init: schema + seed
--- MySQL 8.x
+-- ============================================================================
+-- SCHEMA.SQL - ระบบประเมินบุคลากร (สมบูรณ์)
+-- สำหรับการแข่งขันทักษะ ปวช. - ระบบประเมินบุคลากร
+-- ============================================================================
+-- 
+-- 📋 โครงสร้าง:
+-- ✅ = มีใน Template อยู่แล้ว
+-- 🆕 = เพิ่มใหม่เพื่อให้ครบตามเกณฑ์การแข่งขัน
+-- 
+-- Updated: 2025-10-22
+-- ============================================================================
+
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS=0;
 
+-- สร้าง Database
 CREATE DATABASE IF NOT EXISTS skills_db
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 USE skills_db;
 
--- Drop old objects (order matters)
-DROP VIEW IF EXISTS v_evidence_progress;
+-- ============================================================================
+-- DROP TABLES (ลำดับสำคัญ - ต้อง drop ตาราง child ก่อน parent)
+-- ============================================================================
 
+-- 🆕 DROP ตารางเพิ่มเติม
+DROP TABLE IF EXISTS evaluator_comments;
+DROP TABLE IF EXISTS signatures;
+
+-- ✅ DROP ตารางเดิม
+DROP TABLE IF EXISTS v_evidence_progress;
 DROP TABLE IF EXISTS attachments;
 DROP TABLE IF EXISTS evaluation_results;
 DROP TABLE IF EXISTS assignments;
@@ -28,10 +46,11 @@ DROP TABLE IF EXISTS vocational_categories;
 
 SET FOREIGN_KEY_CHECKS=1;
 
--- =========================
--- SCHEMA
--- =========================
+-- ============================================================================
+-- ✅ ตารางพื้นฐาน (มีใน Template แล้ว)
+-- ============================================================================
 
+-- ตารางหมวดหมู่สาขาวิชา
 CREATE TABLE vocational_categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(10) NOT NULL UNIQUE,
@@ -39,6 +58,7 @@ CREATE TABLE vocational_categories (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+-- ตารางสาขาวิชา
 CREATE TABLE vocational_fields (
   code VARCHAR(10) PRIMARY KEY,
   name_th VARCHAR(255) NOT NULL,
@@ -48,12 +68,14 @@ CREATE TABLE vocational_fields (
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ตารางกลุ่มองค์กร
 CREATE TABLE org_groups (
   id INT AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(20) NOT NULL UNIQUE,
   name_th VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB;
 
+-- ตารางแผนก
 CREATE TABLE departments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(20) NOT NULL UNIQUE,
@@ -68,6 +90,7 @@ CREATE TABLE departments (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ตารางเชื่อมโยงแผนก-สาขาวิชา
 CREATE TABLE dept_fields (
   dept_id INT NOT NULL,
   field_code VARCHAR(10) NOT NULL,
@@ -80,10 +103,14 @@ CREATE TABLE dept_fields (
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================================
+-- ✅ ตารางผู้ใช้ (มีใน Template แล้ว)
+-- ============================================================================
+
 CREATE TABLE users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,        -- ใช้ชื่อคอลัมน์ให้ตรงกับ seed
+  password_hash VARCHAR(255) NOT NULL,
   name_th VARCHAR(255) NOT NULL,
   role ENUM('admin','evaluator','evaluatee') NOT NULL,
   status ENUM('active','disabled') NOT NULL DEFAULT 'active',
@@ -99,6 +126,14 @@ CREATE TABLE users (
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_dept ON users(department_id);
+
+-- ============================================================================
+-- ✅ ตารางรอบการประเมิน (มีใน Template แล้ว)
+-- ============================================================================
+
 CREATE TABLE evaluation_periods (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(30) NOT NULL UNIQUE,
@@ -107,8 +142,16 @@ CREATE TABLE evaluation_periods (
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
+
+CREATE INDEX idx_periods_active ON evaluation_periods(is_active);
+CREATE INDEX idx_periods_year ON evaluation_periods(buddhist_year);
+
+-- ============================================================================
+-- ✅ ตารางหัวข้อการประเมิน (มีใน Template แล้ว)
+-- ============================================================================
 
 CREATE TABLE evaluation_topics (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -117,8 +160,13 @@ CREATE TABLE evaluation_topics (
   description TEXT NULL,
   weight DECIMAL(5,2) NOT NULL DEFAULT 0.00,
   active TINYINT(1) NOT NULL DEFAULT 1,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
+
+-- ============================================================================
+-- ✅ ตารางตัวชี้วัด (มีใน Template แล้ว)
+-- ============================================================================
 
 CREATE TABLE indicators (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -132,18 +180,28 @@ CREATE TABLE indicators (
   max_score TINYINT NOT NULL DEFAULT 4,
   active TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_ind_topic
     FOREIGN KEY (topic_id) REFERENCES evaluation_topics(id)
     ON DELETE CASCADE ON UPDATE CASCADE,
   KEY idx_ind_topic (topic_id)
 ) ENGINE=InnoDB;
 
+-- ============================================================================
+-- ✅ ตารางชนิดหลักฐาน (มีใน Template แล้ว)
+-- ============================================================================
+
 CREATE TABLE evidence_types (
   id INT AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(30) NOT NULL UNIQUE,
   name_th VARCHAR(255) NOT NULL,
-  description TEXT NULL
+  description TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
+
+-- ============================================================================
+-- ✅ ตารางเชื่อมโยงตัวชี้วัด-หลักฐาน (มีใน Template แล้ว)
+-- ============================================================================
 
 CREATE TABLE indicator_evidence (
   indicator_id BIGINT UNSIGNED NOT NULL,
@@ -157,51 +215,83 @@ CREATE TABLE indicator_evidence (
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ============================================================================
+-- ✅ ตารางมอบหมายกรรมการ (มีใน Template แล้ว)
+-- ============================================================================
+
 CREATE TABLE assignments (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   period_id BIGINT UNSIGNED NOT NULL,
   evaluator_id BIGINT UNSIGNED NOT NULL,
   evaluatee_id BIGINT UNSIGNED NOT NULL,
+  role_type ENUM('chairman','member') NOT NULL DEFAULT 'member',  -- เพิ่มบทบาท
   dept_id INT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_asg_period
+  CONSTRAINT fk_assign_period
     FOREIGN KEY (period_id) REFERENCES evaluation_periods(id)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_asg_evalr
+  CONSTRAINT fk_assign_evaluator
     FOREIGN KEY (evaluator_id) REFERENCES users(id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_asg_evale
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_assign_evaluatee
     FOREIGN KEY (evaluatee_id) REFERENCES users(id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_asg_dept
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_assign_dept
     FOREIGN KEY (dept_id) REFERENCES departments(id)
     ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT uniq_asg UNIQUE (period_id, evaluator_id, evaluatee_id),
-  KEY idx_asg_evalr (evaluator_id, period_id),
-  KEY idx_asg_evale (evaluatee_id, period_id)
+  KEY idx_assign_evaluator (evaluator_id, period_id),
+  KEY idx_assign_evaluatee (evaluatee_id, period_id),
+  UNIQUE KEY uk_assign (period_id, evaluator_id, evaluatee_id)
 ) ENGINE=InnoDB;
+
+-- ============================================================================
+-- ✅ ตารางผลการประเมิน (มีใน Template แล้ว)
+-- ============================================================================
 
 CREATE TABLE evaluation_results (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   period_id BIGINT UNSIGNED NOT NULL,
   evaluatee_id BIGINT UNSIGNED NOT NULL,
-  evaluator_id BIGINT UNSIGNED NOT NULL,
-  topic_id BIGINT UNSIGNED NOT NULL,
   indicator_id BIGINT UNSIGNED NOT NULL,
-  score DECIMAL(5,2) NULL,
-  value_yes_no TINYINT(1) NULL,
-  notes TEXT NULL,
-  status ENUM('draft','submitted') NOT NULL DEFAULT 'draft',
+  
+  -- คะแนนประเมินตนเอง
+  self_score DECIMAL(5,2) NULL,
+  self_note TEXT NULL,
+  self_submitted_at TIMESTAMP NULL,
+  
+  -- คะแนนจากกรรมการ
+  evaluator_score DECIMAL(5,2) NULL,
+  evaluator_id BIGINT UNSIGNED NULL,
+  evaluator_note TEXT NULL,
+  evaluated_at TIMESTAMP NULL,
+  
+  -- สถานะ
+  status ENUM('draft','submitted','evaluated','approved') NOT NULL DEFAULT 'draft',
+  
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_res_period  FOREIGN KEY (period_id)    REFERENCES evaluation_periods(id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_res_evale   FOREIGN KEY (evaluatee_id) REFERENCES users(id)              ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_res_evalr   FOREIGN KEY (evaluator_id) REFERENCES users(id)              ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_res_topic   FOREIGN KEY (topic_id)     REFERENCES evaluation_topics(id)  ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_res_ind     FOREIGN KEY (indicator_id) REFERENCES indicators(id)         ON DELETE RESTRICT ON UPDATE CASCADE,
+  
+  CONSTRAINT fk_results_period
+    FOREIGN KEY (period_id) REFERENCES evaluation_periods(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_results_evaluatee
+    FOREIGN KEY (evaluatee_id) REFERENCES users(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_results_evaluator
+    FOREIGN KEY (evaluator_id) REFERENCES users(id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_results_indicator
+    FOREIGN KEY (indicator_id) REFERENCES indicators(id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
   KEY idx_results_evale (evaluatee_id, period_id),
-  KEY idx_results_indicator (indicator_id)
+  KEY idx_results_indicator (indicator_id),
+  KEY idx_results_status (status),
+  UNIQUE KEY uk_results (period_id, evaluatee_id, indicator_id)
 ) ENGINE=InnoDB;
+
+-- ============================================================================
+-- ✅ ตารางไฟล์แนบหลักฐาน (มีใน Template แล้ว)
+-- ============================================================================
 
 CREATE TABLE attachments (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -213,20 +303,75 @@ CREATE TABLE attachments (
   mime_type VARCHAR(100) NOT NULL,
   size_bytes INT UNSIGNED NOT NULL,
   storage_path VARCHAR(1024) NOT NULL,
+  note TEXT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_att_period  FOREIGN KEY (period_id)       REFERENCES evaluation_periods(id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_att_evale   FOREIGN KEY (evaluatee_id)    REFERENCES users(id)              ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_att_ind     FOREIGN KEY (indicator_id)    REFERENCES indicators(id)         ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_att_evtype  FOREIGN KEY (evidence_type_id) REFERENCES evidence_types(id)    ON DELETE RESTRICT ON UPDATE CASCADE,
-  KEY idx_attach_evale (evaluatee_id, period_id)
+  CONSTRAINT fk_att_period
+    FOREIGN KEY (period_id) REFERENCES evaluation_periods(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_att_evale
+    FOREIGN KEY (evaluatee_id) REFERENCES users(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_att_ind
+    FOREIGN KEY (indicator_id) REFERENCES indicators(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_att_evtype
+    FOREIGN KEY (evidence_type_id) REFERENCES evidence_types(id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  KEY idx_attach_evale (evaluatee_id, period_id),
+  KEY idx_attach_indicator (indicator_id)
 ) ENGINE=InnoDB;
 
--- Helpful indexes
-CREATE INDEX idx_users_dept ON users(department_id);
+-- ============================================================================
+-- 🆕 ตารางลายเซ็นดิจิทัล (เพิ่มใหม่)
+-- สำหรับกรรมการลงนามผลการประเมิน
+-- ============================================================================
 
--- =========================
--- SEED DATA
--- =========================
+CREATE TABLE signatures (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  result_id BIGINT UNSIGNED NOT NULL,
+  evaluator_id BIGINT UNSIGNED NOT NULL,
+  signature_data TEXT NOT NULL,      -- base64 ของรูปลายเซ็น
+  signed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_sig_result
+    FOREIGN KEY (result_id) REFERENCES evaluation_results(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_sig_evaluator
+    FOREIGN KEY (evaluator_id) REFERENCES users(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  KEY idx_sig_result (result_id),
+  UNIQUE KEY uk_sig (result_id, evaluator_id)
+) ENGINE=InnoDB;
+
+-- ============================================================================
+-- 🆕 ตารางความคิดเห็นของกรรมการ (เพิ่มใหม่)
+-- สำหรับกรรมการให้ความคิดเห็นสรุปการประเมิน
+-- ============================================================================
+
+CREATE TABLE evaluator_comments (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  period_id BIGINT UNSIGNED NOT NULL,
+  evaluatee_id BIGINT UNSIGNED NOT NULL,
+  evaluator_id BIGINT UNSIGNED NOT NULL,
+  comment_text TEXT NOT NULL,
+  comment_type ENUM('general','strength','improvement') NOT NULL DEFAULT 'general',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_comment_period
+    FOREIGN KEY (period_id) REFERENCES evaluation_periods(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_comment_evaluatee
+    FOREIGN KEY (evaluatee_id) REFERENCES users(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_comment_evaluator
+    FOREIGN KEY (evaluator_id) REFERENCES users(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  KEY idx_comment_evaluatee (evaluatee_id, period_id),
+  KEY idx_comment_evaluator (evaluator_id, period_id)
+) ENGINE=InnoDB;
+
+-- ============================================================================
+-- SEED DATA (ข้อมูลตัวอย่าง)
+-- ============================================================================
 
 -- Categories
 INSERT INTO vocational_categories (code, name_th) VALUES
@@ -242,310 +387,140 @@ INSERT INTO vocational_categories (code, name_th) VALUES
 ('CAT10','อุตสาหกรรมสุขภาพและความงาม'),
 ('CAT11','อุตสาหกรรมบันเทิง');
 
--- Fields (subset incl. IT/ME/EL/ACC/MKT)
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20101','ช่างยนต์', id FROM vocational_categories WHERE code='CAT01';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20102','ช่างกลโรงงาน', id FROM vocational_categories WHERE code='CAT01';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20103','ช่างเชื่อมโลหะ', id FROM vocational_categories WHERE code='CAT01';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20104','ช่างไฟฟ้ากำลัง', id FROM vocational_categories WHERE code='CAT01';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20105','อิเล็กทรอนิกส์', id FROM vocational_categories WHERE code='CAT01';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20127','เมคคาทรอนิกส์และหุ่นยนต์', id FROM vocational_categories WHERE code='CAT01';
+-- Fields (สาขาวิชา - ตัวอย่าง)
+INSERT INTO vocational_fields (code, name_th, category_id) VALUES
+('IT01','เทคโนโลยีสารสนเทศ',8),
+('CP01','คอมพิวเตอร์โปรแกรมเมอร์',8),
+('MM01','มัลติมีเดีย',8),
+('BA01','การบัญชี',2),
+('MK01','การตลาด',2);
 
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20201','การบัญชี', id FROM vocational_categories WHERE code='CAT02';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20202','การตลาด', id FROM vocational_categories WHERE code='CAT02';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20216','การจัดการสำนักงานดิจิทัล', id FROM vocational_categories WHERE code='CAT02';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21910','เทคโนโลยีธุรกิจดิจิทัล', id FROM vocational_categories WHERE code='CAT02';
-
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21602','การออกแบบ', id FROM vocational_categories WHERE code='CAT03';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21606','การถ่ายภาพและมัลติมีเดีย', id FROM vocational_categories WHERE code='CAT03';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21619','ออกแบบนิเทศศิลป์', id FROM vocational_categories WHERE code='CAT03';
-
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21804','แฟชั่นและสิ่งทอ', id FROM vocational_categories WHERE code='CAT04';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21504','อาหารและโภชนาการ', id FROM vocational_categories WHERE code='CAT04';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20406','คหกรรมศาสตร์', id FROM vocational_categories WHERE code='CAT04';
-
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21701','เกษตรศาสตร์', id FROM vocational_categories WHERE code='CAT05';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21709','นวัตกรรมเกษตร', id FROM vocational_categories WHERE code='CAT05';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21715','ประมง', id FROM vocational_categories WHERE code='CAT05';
-
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20701','การโรงแรม', id FROM vocational_categories WHERE code='CAT06';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '20702','การท่องเที่ยว', id FROM vocational_categories WHERE code='CAT06';
-
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21801','เทคโนโลยีสิ่งทอ', id FROM vocational_categories WHERE code='CAT07';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21802','เคมีสิ่งทอ', id FROM vocational_categories WHERE code='CAT07';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21803','เทคโนโลยีเครื่องนุ่งห่ม', id FROM vocational_categories WHERE code='CAT07';
-
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21901','เทคโนโลยีสารสนเทศ', id FROM vocational_categories WHERE code='CAT08';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21903','คอมพิวเตอร์โปรแกรมเมอร์', id FROM vocational_categories WHERE code='CAT08';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21906','เทคโนโลยีปัญญาประดิษฐ์', id FROM vocational_categories WHERE code='CAT08';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21907','เทคโนโลยีโลกเสมือนจริง', id FROM vocational_categories WHERE code='CAT08';
-
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21401','โลจิสติกส์', id FROM vocational_categories WHERE code='CAT09';
-
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21302','การจัดการงานบริการสถานพยาบาล', id FROM vocational_categories WHERE code='CAT10';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21303','ธุรกิจการกีฬา', id FROM vocational_categories WHERE code='CAT10';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '21305','ธุรกิจเสริมสวย', id FROM vocational_categories WHERE code='CAT10';
-
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '22001','อุตสาหกรรมแสงและเสียง', id FROM vocational_categories WHERE code='CAT11';
-INSERT INTO vocational_fields (code, name_th, category_id)
-SELECT '22002','อุตสาหกรรมดนตรี', id FROM vocational_categories WHERE code='CAT11';
-
--- Org groups (ลบจุลภาคท้ายบรรทัดสุดท้าย)
+-- Org Groups
 INSERT INTO org_groups (code, name_th) VALUES
-('ACD','ฝ่ายวิชาการ'),
-('STD','ฝ่ายพัฒนากิจการนักเรียนนักศึกษา'),
-('FIN','ฝ่ายบริหารทรัพยากร'),
-('PLA','ฝ่ายแผนงานและความร่วมมือ');
+('ORG01','ฝ่ายวิชาการ'),
+('ORG02','ฝ่ายบริหาร'),
+('ORG03','ฝ่ายปกครอง');
 
 -- Departments
-INSERT INTO departments (code, name_th, category_id, org_group_id)
-SELECT 'IT','แผนกวิชาเทคโนโลยีสารสนเทศ', id, (SELECT id FROM org_groups WHERE code='ACD')
-FROM vocational_categories WHERE code='CAT08';
-INSERT INTO departments (code, name_th, category_id, org_group_id)
-SELECT 'ME','แผนกวิชาเครื่องกล', id, (SELECT id FROM org_groups WHERE code='ACD')
-FROM vocational_categories WHERE code='CAT01';
-INSERT INTO departments (code, name_th, category_id, org_group_id)
-SELECT 'EL','แผนกวิชาอิเล็กทรอนิกส์', id, (SELECT id FROM org_groups WHERE code='ACD')
-FROM vocational_categories WHERE code='CAT01';
-INSERT INTO departments (code, name_th, category_id, org_group_id)
-SELECT 'ACC','แผนกวิชาการบัญชี', id, (SELECT id FROM org_groups WHERE code='ACD')
-FROM vocational_categories WHERE code='CAT02';
-INSERT INTO departments (code, name_th, category_id, org_group_id)
-SELECT 'MKT','แผนกวิชาการตลาด', id, (SELECT id FROM org_groups WHERE code='ACD')
-FROM vocational_categories WHERE code='CAT02';
+INSERT INTO departments (code, name_th, category_id, org_group_id) VALUES
+('DEPT01','แผนกเทคโนโลยีสารสนเทศ',8,1),
+('DEPT02','แผนกบริหารธุรกิจ',2,1),
+('DEPT03','แผนกบริหารงานทั่วไป',2,2);
 
--- Department ↔ Field
-INSERT INTO dept_fields (dept_id, field_code)
-SELECT d.id, '21901' FROM departments d WHERE d.code='IT';
-INSERT INTO dept_fields (dept_id, field_code)
-SELECT d.id, '21903' FROM departments d WHERE d.code='IT';
-INSERT INTO dept_fields (dept_id, field_code)
-SELECT d.id, '20101' FROM departments d WHERE d.code='ME';
-INSERT INTO dept_fields (dept_id, field_code)
-SELECT d.id, '20105' FROM departments d WHERE d.code='EL';
-INSERT INTO dept_fields (dept_id, field_code)
-SELECT d.id, '20201' FROM departments d WHERE d.code='ACC';
-INSERT INTO dept_fields (dept_id, field_code)
-SELECT d.id, '20202' FROM departments d WHERE d.code='MKT';
+-- Users (รหัสผ่านทั้งหมด: password123 - hash bcrypt 10 rounds)
+-- $2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi
+INSERT INTO users (email, password_hash, name_th, role, status, department_id) VALUES
+-- Admin
+('admin@ccollege.ac.th', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ผู้ดูแลระบบ', 'admin', 'active', 1),
 
--- Users (แก้เป็น password_hash ให้ตรงสคีมา)
-INSERT INTO users (email, password_hash, name_th, role, department_id, org_group_id) VALUES
-('admin@ccollege.ac.th', '$2b$10$f6g9QMzpdIjzUyckEbFLIeuSRKEGJdNSu.TZ3tmegQ5ioSop02og6', 'ผู้ดูแลระบบ', 'admin',
- (SELECT id FROM departments WHERE code='IT'), (SELECT id FROM org_groups WHERE code='ACD')),
-('eva.me@ccollege.ac.th', '$2b$10$ycxCewoT/qjuiZiDb7hfP.aGEnWZu8rMF3UzRO6QgxgIO7lKLsRSm', 'กรรมการประเมินเครื่องกล', 'evaluator',
- (SELECT id FROM departments WHERE code='ME'), (SELECT id FROM org_groups WHERE code='ACD')),
-('eva.it@ccollege.ac.th', '$2b$10$rCg8BVUQSVs51Hb/fwctneQcBfIE0RL5dVRm1bcX5CPyGKyRAxFoe', 'กรรมการประเมินไอที', 'evaluator',
- (SELECT id FROM departments WHERE code='IT'), (SELECT id FROM org_groups WHERE code='ACD')),
-('t.it01@ccollege.ac.th', '$2b$10$V0GTPQ/2Ap5r0nzE49FjfOW7xmXuSPQ8m7P81jwKrFFltwCvBXTsy', 'ครูไอที 01', 'evaluatee',
- (SELECT id FROM departments WHERE code='IT'), (SELECT id FROM org_groups WHERE code='ACD')),
-('t.me01@ccollege.ac.th', '$2b$10$gkmAZQmS5GjA3cgHAzZgN.HZzaH4gKeuTkeJnNoAEFT2OyczRibuC', 'ครูเครื่องกล 01', 'evaluatee',
- (SELECT id FROM departments WHERE code='ME'), (SELECT id FROM org_groups WHERE code='ACD')),
-('t.acc01@ccollege.ac.th', '$2b$10$5FALWHRfgaBZC0Az5BAVdeelVK4LgRGyKOmSC0hNI3yU6.PRbCxnW', 'ครูบัญชี 01', 'evaluatee',
- (SELECT id FROM departments WHERE code='ACC'), (SELECT id FROM org_groups WHERE code='ACD'));
+-- Evaluators (กรรมการ)
+('evaluator1@ccollege.ac.th', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'อ.สมชาย ใจดี', 'evaluator', 'active', 1),
+('evaluator2@ccollege.ac.th', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'อ.สมหญิง รักงาน', 'evaluator', 'active', 1),
 
--- Periods
-INSERT INTO evaluation_periods (code, name_th, buddhist_year, start_date, end_date, is_active)
-VALUES ('Y2568','การประเมินครูประจำปี 2568', 2568, '2025-10-01','2026-09-30', 1);
+-- Evaluatees (ผู้รับการประเมิน)
+('teacher1@ccollege.ac.th', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ครูไอที 01', 'evaluatee', 'active', 1),
+('teacher2@ccollege.ac.th', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ครูไอที 02', 'evaluatee', 'active', 1),
+('teacher3@ccollege.ac.th', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ครูไอที 03', 'evaluatee', 'active', 1);
 
--- Topics
-INSERT INTO evaluation_topics (code, title_th, description, weight) VALUES
-('TOP1','การจัดการเรียนการสอน','คุณภาพการวางแผนการสอน สื่อการสอน การวัดผล และผลสัมฤทธิ์ของผู้เรียน', 0.30),
-('TOP2','การบริหารจัดการชั้นเรียน','การจัดบรรยากาศ กฎระเบียบ การดูแล/ให้คำปรึกษา และกิจกรรมส่งเสริม', 0.20),
-('TOP3','การพัฒนาตนเองและพัฒนาวิชาชีพ','การอบรม/สัมมนา งานวิจัย แผนพัฒนาตนเอง และการประเมินตนเอง', 0.30),
-('TOP4','ด้านอื่นๆ (PA/ผลงาน/จรรยาบรรณ)','ผลงานตามหน้าที่ จรรยาบรรณ และแบบประเมิน PA', 0.20);
+-- Evaluation Periods
+INSERT INTO evaluation_periods (code, name_th, buddhist_year, start_date, end_date, is_active) VALUES
+('P2568-1','รอบที่ 1 ปีการศึกษา 2568', 2568, '2025-01-01', '2025-06-30', 1),
+('P2568-2','รอบที่ 2 ปีการศึกษา 2568', 2568, '2025-07-01', '2025-12-31', 0);
 
--- Indicators
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T1-PLAN','แผนการจัดการเรียนรู้','แผนการสอนสอดคล้องมาตรฐานและตัวชี้วัด','score_1_4',1.00
-FROM evaluation_topics WHERE code='TOP1';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T1-MEDIA','สื่อการเรียนรู้','ใบงาน/แบบฝึก/มัลติมีเดียเหมาะสมกับผู้เรียน','score_1_4',1.00
-FROM evaluation_topics WHERE code='TOP1';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T1-ASSESS','หลักฐานการวัดและประเมินผล','ข้อสอบ/รูบริก/ชิ้นงาน/บันทึกคะแนน','score_1_4',1.00
-FROM evaluation_topics WHERE code='TOP1';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T1-REFLECT','บันทึกหลังการสอน','สะท้อนผลและการปรับปรุงแผนการสอน','yes_no',1.00
-FROM evaluation_topics WHERE code='TOP1';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T1-STUWORK','ผลงานนักเรียน','ชิ้นงานแสดงความรู้/ทักษะ/คุณลักษณะ','score_1_4',1.00
-FROM evaluation_topics WHERE code='TOP1';
+-- Evaluation Topics
+INSERT INTO evaluation_topics (code, title_th, description, weight, active) VALUES
+('T01','ด้านการจัดการเรียนการสอน','ประเมินการจัดการเรียนการสอนและพัฒนาหลักสูตร',30.00,1),
+('T02','ด้านการบริหารจัดการ','ประเมินการบริหารจัดการและภาวะผู้นำ',25.00,1),
+('T03','ด้านการพัฒนาตนเอง','ประเมินการพัฒนาตนเองและเพิ่มพูนความรู้',20.00,1),
+('T04','ด้านการบริการวิชาการ','ประเมินการให้บริการวิชาการแก่สังคม',15.00,1),
+('T05','ด้านการวิจัย','ประเมินการทำวิจัยและพัฒนานวัตกรรม',10.00,1);
 
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T2-CHART','แผนภูมิ/ตาราง','แผนผังที่นั่ง กฎห้องเรียน ตารางเวร','yes_no',1.00
-FROM evaluation_topics WHERE code='TOP2';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T2-HOMEVISIT','บันทึกการเยี่ยมบ้าน','ร่วมมือผู้ปกครอง/ประสานเครือข่าย','yes_no',1.00
-FROM evaluation_topics WHERE code='TOP2';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T2-COUNSEL','บันทึกการให้คำปรึกษา','ช่วยเหลือนักเรียนเป็นรายบุคคล/กลุ่ม','yes_no',1.00
-FROM evaluation_topics WHERE code='TOP2';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T2-ACT','โครงการ/กิจกรรม','กิจกรรมส่งเสริมการเรียนรู้และคุณลักษณะ','score_1_4',1.00
-FROM evaluation_topics WHERE code='TOP2';
+-- Indicators (ตัวอย่าง)
+INSERT INTO indicators (topic_id, code, name_th, description, type, weight, min_score, max_score, active) VALUES
+-- ด้านการสอน
+(1,'IND-T01-01','จัดทำแผนการสอนครบถ้วน','มีแผนการสอนที่สมบูรณ์ ครอบคลุมเนื้อหาตามหลักสูตร','score_1_4',5.00,1,4,1),
+(1,'IND-T01-02','ใช้สื่อการสอนที่หลากหลาย','มีการใช้สื่อการสอนที่เหมาะสมและทันสมัย','score_1_4',5.00,1,4,1),
+(1,'IND-T01-03','ผลการเรียนนักเรียนผ่านเกณฑ์','นักเรียนมีผลการเรียนผ่านเกณฑ์ไม่น้อยกว่า 80%','yes_no',5.00,0,1,1),
 
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T3-CERT','เกียรติบัตร/วุฒิบัตร','การอบรม/สัมมนา/ศึกษาดูงาน','yes_no',1.00
-FROM evaluation_topics WHERE code='TOP3';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T3-RESEARCH','เอกสาร/งานวิจัย','วิจัยในชั้นเรียน/ตีพิมพ์/นำเสนอวิชาการ','score_1_4',1.00
-FROM evaluation_topics WHERE code='TOP3';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T3-IDP','แผนพัฒนาตนเอง','เป้าหมาย/แนวทางพัฒนาตามสายงาน','yes_no',1.00
-FROM evaluation_topics WHERE code='TOP3';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T3-SELFASSESS','ผลการประเมินตนเอง','แบบประเมินตนเองตามแบบของสถานศึกษา','yes_no',1.00
-FROM evaluation_topics WHERE code='TOP3';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T3-SCHOOLPART','มีส่วนร่วมกิจกรรมโรงเรียน','เข้าร่วมประชุม/กิจกรรมวันสำคัญ/โครงการ','score_1_4',1.00
-FROM evaluation_topics WHERE code='TOP3';
+-- ด้านการบริหาร
+(2,'IND-T02-01','เข้าร่วมประชุมครบถ้วน','เข้าร่วมประชุมครบตามกำหนด','yes_no',5.00,0,1,1),
+(2,'IND-T02-02','ปฏิบัติงานตามหน้าที่','ปฏิบัติงานตามที่ได้รับมอบหมายอย่างมีประสิทธิภาพ','score_1_4',5.00,1,4,1),
 
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T4-PA','แบบประเมิน PA','แบบข้อตกลงในการพัฒนางาน (PA)','yes_no',1.00
-FROM evaluation_topics WHERE code='TOP4';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T4-WORK','ผลงานที่เกิดจากหน้าที่','ผลงานตามภาระงานที่ได้รับมอบหมาย','score_1_4',1.00
-FROM evaluation_topics WHERE code='TOP4';
-INSERT INTO indicators (topic_id, code, name_th, description, type, weight)
-SELECT id,'T4-ETHICS','จรรยาบรรณวิชาชีพ','หลักฐานการปฏิบัติตามจรรยาบรรณครู','yes_no',1.00
-FROM evaluation_topics WHERE code='TOP4';
+-- ด้านพัฒนาตนเอง
+(3,'IND-T03-01','อบรมพัฒนาตนเอง','เข้าร่วมอบรมพัฒนาตนเองไม่น้อยกว่า 20 ชั่วโมง/ปี','score_1_4',5.00,1,4,1),
+(3,'IND-T03-02','ศึกษาต่อระดับสูงขึ้น','มีการศึกษาต่อหรือพัฒนาวุฒิการศึกษา','yes_no',5.00,0,1,1);
 
--- Evidence types
+-- Evidence Types
 INSERT INTO evidence_types (code, name_th, description) VALUES
-('E-PLAN','แผนการจัดการเรียนรู้','แผนการสอนตามมาตรฐาน/ตัวชี้วัด'),
-('E-MEDIA','สื่อการเรียนรู้','ใบงาน/แบบฝึก/มัลติมีเดีย'),
-('E-ASSESS','หลักฐานการวัดและประเมินผล','ข้อสอบ/รูบริก/บันทึกคะแนน'),
-('E-REFLECT','บันทึกหลังการสอน','สรุปผล-ข้อเสนอแนะ-ปรับปรุง'),
-('E-STUWORK','ผลงานนักเรียน','ชิ้นงาน/แฟ้มสะสมผลงาน'),
-('E-CHART','แผนภูมิ/กฎ/ตารางเวร','เอกสารการจัดชั้นเรียน'),
-('E-HOMEVISIT','บันทึกการเยี่ยมบ้าน','หลักฐานการเยี่ยมบ้าน/ประสานผู้ปกครอง'),
-('E-COUNSEL','บันทึกการให้คำปรึกษา','แบบบันทึก/รายงานกรณี'),
-('E-ACT','โครงการ/กิจกรรม','เอกสาร/ภาพกิจกรรม/รายงานผล'),
-('E-CERT','เกียรติบัตร/วุฒิบัตร','เอกสารการอบรม/สัมมนา'),
-('E-RESEARCH','งานวิจัย/บทความ','เอกสารวิชาการ/นำเสนอผลงาน'),
-('E-IDP','แผนพัฒนาตนเอง','เอกสารเป้าหมาย/แผนพัฒนา'),
-('E-SELFASSESS','ผลการประเมินตนเอง','แบบฟอร์มประเมินตนเอง'),
-('E-PA','แบบประเมิน PA','เอกสารข้อตกลงฯ'),
-('E-WORK','ผลงานตามหน้าที่','หลักฐานผลงาน/รายงาน'),
-('E-ETHICS','จรรยาบรรณวิชาชีพ','หลักฐานการปฏิบัติตามจรรยาบรรณ');
+('EV01','แผนการสอน','ไฟล์เอกสารแผนการสอน (PDF)'),
+('EV02','ภาพถ่ายกิจกรรม','ภาพถ่ายการจัดกิจกรรม (JPG/PNG)'),
+('EV03','เอกสารรับรอง','เอกสารรับรองจากหน่วยงาน (PDF)'),
+('EV04','ใบประกาศนียบัตร','ใบประกาศนียบัตรการอบรม (PDF)'),
+('EV05','URL/Link','ลิงก์เว็บไซต์หรือเอกสารออนไลน์');
 
--- Indicator ↔ Evidence mapping
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T1-PLAN'), (SELECT id FROM evidence_types WHERE code='E-PLAN');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T1-MEDIA'), (SELECT id FROM evidence_types WHERE code='E-MEDIA');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T1-ASSESS'), (SELECT id FROM evidence_types WHERE code='E-ASSESS');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T1-REFLECT'), (SELECT id FROM evidence_types WHERE code='E-REFLECT');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T1-STUWORK'), (SELECT id FROM evidence_types WHERE code='E-STUWORK');
+-- Indicator-Evidence Mapping
+INSERT INTO indicator_evidence (indicator_id, evidence_type_id) VALUES
+-- แผนการสอน → แผนการสอน
+(1,1),
+-- สื่อการสอน → ภาพถ่าย, URL
+(2,2), (2,5),
+-- ผลการเรียน → เอกสารรับรอง
+(3,3),
+-- เข้าประชุม → เอกสารรับรอง
+(4,3),
+-- ปฏิบัติงาน → เอกสารรับรอง, ภาพถ่าย
+(5,3), (5,2),
+-- อบรม → ใบประกาศนียบัตร
+(6,4),
+-- ศึกษาต่อ → เอกสารรับรอง
+(7,3);
 
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T2-CHART'), (SELECT id FROM evidence_types WHERE code='E-CHART');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T2-HOMEVISIT'), (SELECT id FROM evidence_types WHERE code='E-HOMEVISIT');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T2-COUNSEL'), (SELECT id FROM evidence_types WHERE code='E-COUNSEL');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T2-ACT'), (SELECT id FROM evidence_types WHERE code='E-ACT');
+-- Assignments (ตัวอย่างการมอบหมาย)
+INSERT INTO assignments (period_id, evaluator_id, evaluatee_id, role_type, dept_id) VALUES
+-- รอบที่ 1 ปี 2568
+(1, 2, 4, 'chairman', 1),  -- อ.สมชาย (ประธาน) ประเมิน ครูไอที 01
+(1, 3, 4, 'member', 1),    -- อ.สมหญิง (กรรมการ) ประเมิน ครูไอที 01
+(1, 2, 5, 'chairman', 1),  -- อ.สมชาย (ประธาน) ประเมิน ครูไอที 02
+(1, 3, 6, 'chairman', 1);  -- อ.สมหญิง (ประธาน) ประเมิน ครูไอที 03
 
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T3-CERT'), (SELECT id FROM evidence_types WHERE code='E-CERT');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T3-RESEARCH'), (SELECT id FROM evidence_types WHERE code='E-RESEARCH');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T3-IDP'), (SELECT id FROM evidence_types WHERE code='E-IDP');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T3-SELFASSESS'), (SELECT id FROM evidence_types WHERE code='E-SELFASSESS');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T3-SCHOOLPART'), (SELECT id FROM evidence_types WHERE code='E-ACT');
+-- ============================================================================
+-- VIEWS (สำหรับรายงาน - Optional)
+-- ============================================================================
 
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T4-PA'), (SELECT id FROM evidence_types WHERE code='E-PA');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T4-WORK'), (SELECT id FROM evidence_types WHERE code='E-WORK');
-INSERT INTO indicator_evidence SELECT (SELECT id FROM indicators WHERE code='T4-ETHICS'), (SELECT id FROM evidence_types WHERE code='E-ETHICS');
-
--- Assignments
-INSERT INTO assignments (period_id, evaluator_id, evaluatee_id, dept_id)
-VALUES
-((SELECT id FROM evaluation_periods WHERE code='Y2568'),
- (SELECT id FROM users WHERE email='eva.it@ccollege.ac.th'),
- (SELECT id FROM users WHERE email='t.it01@ccollege.ac.th'),
- (SELECT id FROM departments WHERE code='IT')),
-((SELECT id FROM evaluation_periods WHERE code='Y2568'),
- (SELECT id FROM users WHERE email='eva.me@ccollege.ac.th'),
- (SELECT id FROM users WHERE email='t.me01@ccollege.ac.th'),
- (SELECT id FROM departments WHERE code='ME')),
-((SELECT id FROM evaluation_periods WHERE code='Y2568'),
- (SELECT id FROM users WHERE email='eva.it@ccollege.ac.th'),
- (SELECT id FROM users WHERE email='t.acc01@ccollege.ac.th'),
- (SELECT id FROM departments WHERE code='ACC'));
-
--- Bootstrap a sample result
-INSERT INTO evaluation_results (period_id, evaluatee_id, evaluator_id, topic_id, indicator_id, score, value_yes_no, notes, status)
-SELECT p.id, u_evale.id, u_evalr.id, t.id, i.id, 3.00, NULL, 'สื่อการสอนครบถ้วน เหมาะกับผู้เรียน', 'draft'
-FROM evaluation_periods p
-JOIN users u_evale ON u_evale.email='t.it01@ccollege.ac.th'
-JOIN users u_evalr ON u_evalr.email='eva.it@ccollege.ac.th'
-JOIN evaluation_topics t ON t.code='TOP1'
-JOIN indicators i ON i.code='T1-MEDIA'
-WHERE p.code='Y2568';
-
--- Example attachments
-INSERT INTO attachments (period_id, evaluatee_id, indicator_id, evidence_type_id, file_name, mime_type, size_bytes, storage_path)
-SELECT (SELECT id FROM evaluation_periods WHERE code='Y2568'),
-       (SELECT id FROM users WHERE email='t.it01@ccollege.ac.th'),
-       (SELECT id FROM indicators WHERE code='T1-PLAN'),
-       (SELECT id FROM evidence_types WHERE code='E-PLAN'),
-       'lesson_plan_it01_2568.pdf','application/pdf',523000,
-       '/var/lib/evaluation/uploads/2568/t.it01/lesson_plan_it01_2568.pdf';
-
-INSERT INTO attachments (period_id, evaluatee_id, indicator_id, evidence_type_id, file_name, mime_type, size_bytes, storage_path)
-SELECT (SELECT id FROM evaluation_periods WHERE code='Y2568'),
-       (SELECT id FROM users WHERE email='t.it01@ccollege.ac.th'),
-       (SELECT id FROM indicators WHERE code='T1-MEDIA'),
-       (SELECT id FROM evidence_types WHERE code='E-MEDIA'),
-       'media_samples_it01.zip','application/zip',2048576,
-       '/var/lib/evaluation/uploads/2568/t.it01/media_samples_it01.zip';
-
--- View
-CREATE OR REPLACE VIEW v_evidence_progress AS
-SELECT
+CREATE OR REPLACE VIEW v_evaluation_summary AS
+SELECT 
+  er.period_id,
+  ep.name_th AS period_name,
+  u.id AS evaluatee_id,
   u.name_th AS evaluatee_name,
-  d.name_th AS dept_name,
-  p.buddhist_year,
-  t.title_th AS topic_title,
-  i.code AS indicator_code,
-  i.name_th AS indicator_name,
-  COUNT(a.id) AS files_uploaded
-FROM users u
-JOIN departments d ON d.id = u.department_id
-JOIN assignments s ON s.evaluatee_id = u.id
-JOIN evaluation_periods p ON p.id = s.period_id AND p.is_active = 1
-JOIN indicators i ON 1=1
-JOIN evaluation_topics t ON t.id = i.topic_id
-LEFT JOIN attachments a
-  ON a.indicator_id = i.id
- AND a.evaluatee_id = u.id
- AND a.period_id = p.id
-WHERE u.role = 'evaluatee'
-GROUP BY u.name_th, d.name_th, p.buddhist_year, t.title_th, i.code, i.name_th
-ORDER BY u.name_th, t.title_th, i.code;
+  u.department_id,
+  COUNT(DISTINCT er.indicator_id) AS total_indicators,
+  SUM(CASE WHEN er.status = 'submitted' THEN 1 ELSE 0 END) AS submitted_count,
+  SUM(CASE WHEN er.status = 'evaluated' THEN 1 ELSE 0 END) AS evaluated_count,
+  AVG(er.self_score) AS avg_self_score,
+  AVG(er.evaluator_score) AS avg_evaluator_score
+FROM evaluation_results er
+JOIN users u ON er.evaluatee_id = u.id
+JOIN evaluation_periods ep ON er.period_id = ep.id
+GROUP BY er.period_id, u.id, ep.name_th, u.name_th, u.department_id;
+
+-- ============================================================================
+-- สรุป
+-- ============================================================================
+-- 
+-- ✅ ตารางที่มีใน Template (12 ตาราง):
+--    - vocational_categories, vocational_fields, org_groups, departments
+--    - dept_fields, users, evaluation_periods, evaluation_topics
+--    - indicators, evidence_types, indicator_evidence, assignments
+--    - evaluation_results, attachments
+--
+-- 🆕 ตารางที่เพิ่มใหม่ (2 ตาราง):
+--    - signatures (ลายเซ็นดิจิทัล)
+--    - evaluator_comments (ความคิดเห็นกรรมการ)
+--
+-- 📊 View (1 view):
+--    - v_evaluation_summary (สรุปผลการประเมิน)
+--
+-- รวมทั้งหมด: 14 ตาราง + 1 view
+--
+-- ============================================================================

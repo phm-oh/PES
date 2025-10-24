@@ -49,6 +49,7 @@ app.use(
 );
 const userRoutes = require("./routes/users.routes");
 const authRoutes = require("./routes/auth.routes");
+const periodsRoutes = require("./routes/periods.routes");
 const uploadRoutes = require("./routes/upload.routes");
 
 // http://localhost:7000/api/auth/login
@@ -63,6 +64,7 @@ app.use("/api/upload", uploadRoutes);
 // << เส้นทางสำหรับ Period/Indicator/EvidenceType และ POST /attachments
 app.use("/api", attachmentsApi);           // จะได้ /api/periods/active, /api/indicators, ...
 
+app.use("/api/periods", periodsRoutes);
 
 app.use((req, res, next) => {
   res.status(404).json({ success: false, message: "ไม่พบหน้านี้" });

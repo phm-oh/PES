@@ -54,6 +54,8 @@ const uploadRoutes = require("./routes/upload.routes");
 const indicatorsRoutes = require("./routes/indicators.routes");
 const assignmentsRoutes = require("./routes/assignments.routes");
 const resultsRoutes = require("./routes/results.routes");
+const topicsRouter = require('./routes/topics.routes');
+
 
 // http://localhost:7000/api/auth/login
 // app.use('/api/auth', require('./routes/auth.routes'));
@@ -72,6 +74,7 @@ app.use("/api/periods", periodsRoutes);
 app.use("/api/indicators", indicatorsRoutes);
 app.use("/api/assignments", assignmentsRoutes);
 app.use("/api/results", resultsRoutes);
+app.use('/api/topics', topicsRouter); 
 
 
 

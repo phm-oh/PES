@@ -55,6 +55,9 @@ const indicatorsRoutes = require("./routes/indicators.routes");
 const assignmentsRoutes = require("./routes/assignments.routes");
 const resultsRoutes = require("./routes/results.routes");
 const topicsRouter = require('./routes/topics.routes');
+const signaturesRoutes = require('./routes/signatures.routes');
+const evidenceTypesRoutes = require('./routes/evidenceTypes.routes');
+const commentsRoutes = require('./routes/comments.routes');
 
 
 // http://localhost:7000/api/auth/login
@@ -70,13 +73,13 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api", attachmentsApi);           // จะได้ /api/periods/active, /api/indicators, ...
 
 app.use("/api/periods", periodsRoutes);
-
 app.use("/api/indicators", indicatorsRoutes);
 app.use("/api/assignments", assignmentsRoutes);
 app.use("/api/results", resultsRoutes);
 app.use('/api/topics', topicsRouter); 
-
-
+app.use('/api/evidence-types', evidenceTypesRoutes);
+app.use('/api/signatures', signaturesRoutes);
+app.use('/api/comments', commentsRoutes);
 
 app.use((req, res, next) => {
   res.status(404).json({ success: false, message: "ไม่พบหน้านี้" });

@@ -58,6 +58,7 @@ const topicsRouter = require('./routes/topics.routes');
 const signaturesRoutes = require('./routes/signatures.routes');
 const evidenceTypesRoutes = require('./routes/evidenceTypes.routes');
 const commentsRoutes = require('./routes/comments.routes');
+const reportsRoutes = require('./routes/reports.routes');
 
 
 // http://localhost:7000/api/auth/login
@@ -80,6 +81,7 @@ app.use('/api/topics', topicsRouter);
 app.use('/api/evidence-types', evidenceTypesRoutes);
 app.use('/api/signatures', signaturesRoutes);
 app.use('/api/comments', commentsRoutes);
+app.use('/api/reports', reportsRoutes);
 
 app.use((req, res, next) => {
   res.status(404).json({ success: false, message: "ไม่พบหน้านี้" });

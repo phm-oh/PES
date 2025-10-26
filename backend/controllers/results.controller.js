@@ -127,3 +127,139 @@ exports.remove = async (req, res, next) => {
     next(e);
   }
 };
+
+
+// POST /api/results/self - ประเมินตนเอง
+exports.submitSelf = async (req, res, next) => {
+  try {
+    const evaluateeId = req.user.id; // จาก JWT
+    const { period_id, indicator_id, self_score, self_note } = req.body;
+    
+    // Validation
+    if (!period_id || !indicator_id || self_score === undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'period_id, indicator_id, self_score required' 
+      });
+    }
+    
+    // Check if exists
+    const existing = await db('evaluation_results')
+      .where({ period_id, evaluatee_id: evaluateeId, indicator_id })
+      .first();
+    
+    if (existing) {
+      // Update
+      await db('evaluation_results')
+        .where({ id: existing.id })
+        .update({
+          self_score,
+          self_note: self_note || null,
+          self_submitted_at: db.fn.now(),
+          status: 'submitted'
+        });
+    } else {
+      // Insert
+      await db('evaluation_results').insert({
+        period_id,
+        evaluatee_id: evaluateeId,
+        indicator_id,
+        self_score,
+        self_note: self_note || null,
+        self_submitted_at: db.fn.now(),
+        status: 'submitted'
+      });
+    }
+    
+    const result = await db('evaluation_results')
+      .where({ period_id, evaluatee_id: evaluateeId, indicator_id })
+      .first();
+    
+    res.json({ success: true, data: result });
+  } catch (e) {
+    next(e);
+  }
+};
+
+// POST /api/results/evaluate - กรรมการให้คะแนน
+exports.submitEvaluate = async (req, res, next) => {
+  try {
+    const evaluatorId = req.user.id;
+    const { result_id, evaluator_score, evaluator_note } = req.body;
+    
+    if (!result_id || evaluator_score === undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'result_id, evaluator_score required' 
+      });
+    }
+    
+    // Check authorization (ต้องเป็นกรรมการที่ได้รับมอบหมาย)
+    const result = await db('evaluation_results').where({ id: result_id }).first();
+    if (!result) {
+      return res.status(404).json({ success: false, message: 'Result not found' });
+    }
+    
+    const assignment = await db('assignments')
+      .where({
+        period_id: result.period_id,
+        evaluatee_id: result.evaluatee_id,
+        evaluator_id: evaluatorId
+      })
+      .first();
+    
+    if (!assignment) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to evaluate this person' 
+      });
+    }
+    
+    // Update
+    await db('evaluation_results')
+      .where({ id: result_id })
+      .update({
+        evaluator_id: evaluatorId,
+        evaluator_score,
+        evaluator_note: evaluator_note || null,
+        evaluated_at: db.fn.now(),
+        status: 'evaluated'
+      });
+    
+    const updated = await db('evaluation_results').where({ id: result_id }).first();
+    
+    res.json({ success: true, data: updated });
+  } catch (e) {
+    next(e);
+  }
+};
+
+// GET /api/results/my-progress - ดูความคืบหน้าตัวเอง
+exports.getMyProgress = async (req, res, next) => {
+  try {
+    const evaluateeId = req.user.id;
+    const { period_id } = req.query;
+    
+    if (!period_id) {
+      return res.status(400).json({ success: false, message: 'period_id required' });
+    }
+    
+    const results = await db('evaluation_results as er')
+      .select(
+        'er.*',
+        'i.name_th as indicator_name',
+        'i.type as indicator_type',
+        't.title_th as topic_name'
+      )
+      .leftJoin('indicators as i', 'er.indicator_id', 'i.id')
+      .leftJoin('evaluation_topics as t', 'i.topic_id', 't.id')
+      .where('er.evaluatee_id', evaluateeId)
+      .where('er.period_id', period_id)
+      .orderBy('t.id', 'asc')
+      .orderBy('i.id', 'asc');
+    
+    res.json({ success: true, items: results, total: results.length });
+  } catch (e) {
+    next(e);
+  }
+};

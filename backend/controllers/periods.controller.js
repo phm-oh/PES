@@ -108,3 +108,12 @@ exports.remove = async (req, res, next) => {
     next(e);
   }
 };
+
+exports.listActive = async (req, res, next) => {
+  try {
+    const items = await periodsRepo.findActive(); // ต้องเพิ่มใน repository
+    res.json({ success: true, items, total: items.length });
+  } catch (e) {
+    next(e);
+  }
+};

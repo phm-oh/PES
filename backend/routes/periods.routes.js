@@ -8,6 +8,8 @@ router.use(auth());
 
 // Routes
 router.get('/', ctrl.list);
+// เพิ่ม route นี้ก่อน /:id
+router.get('/active', ctrl.listActive);
 router.get('/:id', ctrl.get);
 router.post('/', ctrl.create);
 router.put('/:id', ctrl.update);

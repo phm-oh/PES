@@ -47,3 +47,10 @@ exports.isActive = async (id) => {
   const row = await db(TABLE).where({ id, is_active: 1 }).first();
   return !!row;
 };
+
+exports.findActive = async () => {
+  return db('evaluation_periods')
+    .where({ is_active: 1 })
+    .orderBy('buddhist_year', 'desc')
+    .orderBy('id', 'desc');
+};

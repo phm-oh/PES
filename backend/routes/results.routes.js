@@ -14,5 +14,8 @@ router.post('/evaluate', requireAuth, ctrl.evaluate);
 router.get('/', requireAuth, ctrl.list);
 router.get('/:id', requireAuth, ctrl.get);
 router.delete('/:id', requireAuth, ctrl.remove);
+router.post('/self', ctrl.submitSelf);
+router.post('/evaluate', ctrl.submitEvaluate);
+router.get('/my-progress', ctrl.getMyProgress);
 
 module.exports = router;

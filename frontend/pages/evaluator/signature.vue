@@ -1,5 +1,5 @@
 <!-- frontend/pages/evaluator/signature.vue -->
-<!-- 📋 หน้าลงนามดิจิทัล (Evaluator) -->
+<!-- 📝 หน้าลงนามอิเล็กทรอนิกส์ (Evaluator) -->
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
@@ -10,281 +10,222 @@ const auth = useAuthStore()
 const config = useRuntimeConfig()
 
 // ============= STATE =============
-const canvas = ref(null)
-const ctx = ref(null)
-const isDrawing = ref(false)
-const signatures = ref([])
-const selectedResult = ref(null)
-const results = ref([])
+const periods = ref([])
+const selectedPeriod = ref(null)
+const documents = ref([])
 const loading = ref(false)
-const saving = ref(false)
+const signing = ref(false)
+const selectedDoc = ref(null)
+const signatureDialog = ref(false)
+const signaturePad = ref(null)
 const errorMsg = ref('')
 const successMsg = ref('')
 
 // ============= METHODS =============
-onMounted(() => {
-  initCanvas()
-  fetchResults()
-  fetchSignatures()
-})
-
-function initCanvas() {
-  if (!canvas.value) return
-  
-  ctx.value = canvas.value.getContext('2d')
-  ctx.value.strokeStyle = '#000000'
-  ctx.value.lineWidth = 2
-  ctx.value.lineCap = 'round'
-}
-
-function startDrawing(e) {
-  isDrawing.value = true
-  const rect = canvas.value.getBoundingClientRect()
-  ctx.value.beginPath()
-  ctx.value.moveTo(e.clientX - rect.left, e.clientY - rect.top)
-}
-
-function draw(e) {
-  if (!isDrawing.value) return
-  
-  const rect = canvas.value.getBoundingClientRect()
-  ctx.value.lineTo(e.clientX - rect.left, e.clientY - rect.top)
-  ctx.value.stroke()
-}
-
-function stopDrawing() {
-  isDrawing.value = false
-}
-
-function clearCanvas() {
-  ctx.value.clearRect(0, 0, canvas.value.width, canvas.value.height)
-}
-
-async function fetchResults() {
+async function fetchPeriods() {
   try {
-    // ดึงรายการผลประเมินที่ยังไม่มีลายเซ็น
-    const res = await $fetch(`${config.public.apiBase}/api/results`, {
-      params: { 
-        evaluator_id: auth.user.id,
-        status: 'completed'
-      },
+    const res = await $fetch(`${config.public.apiBase}/api/periods`, {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
-    results.value = res.items || []
+    periods.value = res.items || []
+    if (periods.value.length > 0) {
+      selectedPeriod.value = periods.value[0].id
+      fetchDocuments()
+    }
   } catch (e) {
-    console.error('Load results failed:', e)
+    console.error('Load periods failed:', e)
   }
 }
 
-async function fetchSignatures() {
+async function fetchDocuments() {
+  if (!selectedPeriod.value) return
+  
   loading.value = true
+  errorMsg.value = ''
   try {
-    const res = await $fetch(`${config.public.apiBase}/api/signatures/evaluator/${auth.user.id}`, {
+    const res = await $fetch(`${config.public.apiBase}/api/assignments/mine`, {
+      params: { period_id: selectedPeriod.value },
       headers: { Authorization: `Bearer ${auth.token}` }
     })
-    signatures.value = res.items || []
+    
+    // กรองเฉพาะที่ประเมินเสร็จแล้ว แต่ยังไม่ลงนาม
+    documents.value = (res.items || []).filter(item => 
+      item.status === 'completed' && !item.signed_at
+    )
   } catch (e) {
-    console.error('Load signatures failed:', e)
+    errorMsg.value = e.data?.message || e.message || 'Load failed'
   } finally {
     loading.value = false
   }
 }
 
-async function saveSignature() {
-  if (!selectedResult.value) {
-    errorMsg.value = 'กรุณาเลือกผลการประเมิน'
-    return
-  }
+function openSignDialog(doc) {
+  selectedDoc.value = doc
+  signatureDialog.value = true
+}
 
+function closeSignDialog() {
+  signatureDialog.value = false
+  selectedDoc.value = null
+}
+
+async function confirmSign() {
+  if (!selectedDoc.value) return
+  
+  signing.value = true
   errorMsg.value = ''
   successMsg.value = ''
-  saving.value = true
-
+  
   try {
-    // แปลง canvas เป็น base64
-    const signatureData = canvas.value.toDataURL('image/png')
-    
-    await $fetch(`${config.public.apiBase}/api/signatures`, {
+    await $fetch(`${config.public.apiBase}/api/assignments/${selectedDoc.value.id}/sign`, {
       method: 'POST',
       headers: { 
         Authorization: `Bearer ${auth.token}`,
         'Content-Type': 'application/json'
       },
       body: {
-        result_id: selectedResult.value,
-        evaluator_id: auth.user.id,
-        signature_data: signatureData
+        signature: 'digital_signature', // TODO: Implement real signature
+        signed_at: new Date().toISOString()
       }
     })
-
-    successMsg.value = 'บันทึกลายเซ็นสำเร็จ'
-    clearCanvas()
-    selectedResult.value = null
-    await fetchSignatures()
-    await fetchResults()
+    
+    successMsg.value = 'ลงนามสำเร็จ'
+    closeSignDialog()
+    await fetchDocuments()
   } catch (e) {
-    errorMsg.value = e.data?.message || e.message || 'Save failed'
+    errorMsg.value = e.data?.message || e.message || 'Sign failed'
   } finally {
-    saving.value = false
+    signing.value = false
   }
 }
 
-async function deleteSignature(id) {
-  if (!confirm('ต้องการลบลายเซ็นนี้ใช่หรือไม่?')) return
-
-  try {
-    await $fetch(`${config.public.apiBase}/api/signatures/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${auth.token}` }
-    })
-    successMsg.value = 'ลบลายเซ็นสำเร็จ'
-    await fetchSignatures()
-  } catch (e) {
-    errorMsg.value = e.data?.message || e.message || 'Delete failed'
-  }
-}
+onMounted(() => {
+  fetchPeriods()
+})
 </script>
 
 <template>
   <div class="pa-4">
-    <v-row>
-      <!-- Canvas ลงนาม -->
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon left color="primary">mdi-draw</v-icon>
-            <span class="text-h6 ml-2">ลงนามดิจิทัล</span>
-          </v-card-title>
+    <!-- Header -->
+    <div class="d-flex justify-space-between align-center mb-6">
+      <div>
+        <h1 class="text-h4 font-weight-bold">Digital Signature</h1>
+        <p class="text-subtitle-1 text-medium-emphasis mt-2">ลงนามอิเล็กทรอนิกส์</p>
+      </div>
+    </div>
 
-          <v-divider />
+    <!-- Period Selector -->
+    <v-card class="mb-6">
+      <v-card-text>
+        <v-select
+          v-model="selectedPeriod"
+          :items="periods"
+          item-title="name_th"
+          item-value="id"
+          label="เลือกรอบการประเมิน"
+          density="comfortable"
+          variant="outlined"
+          @update:model-value="fetchDocuments"
+        />
+      </v-card-text>
+    </v-card>
 
-          <v-card-text>
-            <v-alert v-if="errorMsg" type="error" dismissible @click:close="errorMsg = ''">
-              {{ errorMsg }}
-            </v-alert>
-            <v-alert v-if="successMsg" type="success" dismissible @click:close="successMsg = ''">
-              {{ successMsg }}
-            </v-alert>
+    <!-- Messages -->
+    <v-alert v-if="errorMsg" type="error" class="mb-4" closable @click:close="errorMsg = ''">
+      {{ errorMsg }}
+    </v-alert>
+    <v-alert v-if="successMsg" type="success" class="mb-4" closable @click:close="successMsg = ''">
+      {{ successMsg }}
+    </v-alert>
 
-            <!-- เลือกผลการประเมิน -->
-            <v-select
-              v-model="selectedResult"
-              :items="results"
-              item-title="evaluatee_name"
-              item-value="id"
-              label="เลือกผลการประเมิน"
-              class="mb-4"
-            >
-              <template #item="{ props, item }">
-                <v-list-item v-bind="props">
-                  <v-list-item-title>{{ item.raw.evaluatee_name }}</v-list-item-title>
-                  <v-list-item-subtitle>{{ item.raw.period_name }}</v-list-item-subtitle>
-                </v-list-item>
-              </template>
-            </v-select>
+    <!-- Loading -->
+    <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-4" />
 
-            <!-- Canvas -->
-            <div class="text-center mb-4">
-              <canvas
-                ref="canvas"
-                width="500"
-                height="200"
-                style="border: 2px solid #ccc; border-radius: 8px; cursor: crosshair; touch-action: none;"
-                @mousedown="startDrawing"
-                @mousemove="draw"
-                @mouseup="stopDrawing"
-                @mouseleave="stopDrawing"
-              />
-            </div>
+    <!-- Documents List -->
+    <v-card v-if="!loading">
+      <v-card-title>เอกสารรอลงนาม ({{ documents.length }})</v-card-title>
+      <v-card-text>
+        <v-list v-if="documents.length > 0">
+          <v-list-item
+            v-for="doc in documents"
+            :key="doc.id"
+            class="mb-2"
+          >
+            <template #prepend>
+              <v-icon color="warning">mdi-file-document-edit-outline</v-icon>
+            </template>
 
-            <!-- Actions -->
-            <div class="d-flex gap-2">
-              <v-btn color="grey" variant="outlined" @click="clearCanvas" block>
-                <v-icon left>mdi-eraser</v-icon>
-                ล้าง
-              </v-btn>
+            <v-list-item-title>
+              {{ doc.evaluatee_name }}
+            </v-list-item-title>
+            <v-list-item-subtitle>
+              รอบการประเมิน: {{ doc.period_name }}
+            </v-list-item-subtitle>
+
+            <template #append>
               <v-btn
                 color="primary"
-                variant="elevated"
-                @click="saveSignature"
-                :loading="saving"
-                :disabled="!selectedResult"
-                block
+                variant="tonal"
+                prepend-icon="mdi-draw-pen"
+                @click="openSignDialog(doc)"
               >
-                <v-icon left>mdi-content-save</v-icon>
-                บันทึก
+                ลงนาม
               </v-btn>
+            </template>
+          </v-list-item>
+        </v-list>
+
+        <!-- Empty State -->
+        <div v-else class="text-center py-12">
+          <v-icon size="64" color="grey-lighten-1">mdi-check-circle-outline</v-icon>
+          <div class="text-h6 mt-4 text-medium-emphasis">ไม่มีเอกสารรอลงนาม</div>
+          <div class="text-body-2 mt-2 text-medium-emphasis">
+            เอกสารทั้งหมดได้ลงนามเรียบร้อยแล้ว
+          </div>
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <!-- Signature Dialog -->
+    <v-dialog v-model="signatureDialog" max-width="600px" persistent>
+      <v-card>
+        <v-card-title>ยืนยันการลงนาม</v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" class="mb-4">
+            <div class="text-body-2">
+              คุณกำลังจะลงนามอิเล็กทรอนิกส์สำหรับ:
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
+            <div class="text-h6 mt-2">{{ selectedDoc?.evaluatee_name }}</div>
+            <div class="text-caption mt-1">{{ selectedDoc?.period_name }}</div>
+          </v-alert>
 
-      <!-- รายการลายเซ็น -->
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon left color="success">mdi-check-decagram</v-icon>
-            <span class="text-h6 ml-2">ลายเซ็นที่บันทึกแล้ว</span>
-          </v-card-title>
-
-          <v-divider />
-
-          <v-card-text>
-            <!-- Loading -->
-            <div v-if="loading" class="text-center pa-8">
-              <v-progress-circular indeterminate color="primary" />
+          <!-- TODO: Implement signature pad canvas -->
+          <v-card variant="outlined" class="pa-4 text-center" min-height="200">
+            <v-icon size="64" color="grey">mdi-draw</v-icon>
+            <div class="text-caption mt-2 text-medium-emphasis">
+              Signature Pad - Coming Soon
             </div>
+          </v-card>
 
-            <!-- Signature List -->
-            <v-list v-else-if="signatures.length > 0">
-              <v-list-item
-                v-for="sig in signatures"
-                :key="sig.id"
-                class="mb-2"
-                border
-                rounded
-              >
-                <template #prepend>
-                  <img
-                    :src="sig.signature_data"
-                    alt="Signature"
-                    style="width: 100px; height: 50px; object-fit: contain; border: 1px solid #ccc; border-radius: 4px;"
-                  />
-                </template>
-
-                <v-list-item-title>{{ sig.evaluatee_name || 'ผู้ถูกประเมิน' }}</v-list-item-title>
-                <v-list-item-subtitle>
-                  ลงนามเมื่อ: {{ new Date(sig.signed_at).toLocaleDateString('th-TH') }}
-                </v-list-item-subtitle>
-
-                <template #append>
-                  <v-btn
-                    icon
-                    size="small"
-                    color="error"
-                    variant="text"
-                    @click="deleteSignature(sig.id)"
-                  >
-                    <v-icon>mdi-delete</v-icon>
-                  </v-btn>
-                </template>
-              </v-list-item>
-            </v-list>
-
-            <!-- No Data -->
-            <div v-else class="text-center pa-8">
-              <v-icon size="64" color="grey">mdi-draw-pen</v-icon>
-              <div class="text-subtitle-1 mt-2">ยังไม่มีลายเซ็น</div>
+          <v-alert type="warning" variant="tonal" class="mt-4">
+            <div class="text-caption">
+              การลงนามอิเล็กทรอนิกส์มีผลทางกฎหมายเท่าเทียมกับลายเซ็นจริง
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="closeSignDialog">ยกเลิก</v-btn>
+          <v-btn 
+            color="primary" 
+            variant="flat" 
+            @click="confirmSign"
+            :loading="signing"
+          >
+            ยืนยันการลงนาม
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
-
-<style scoped>
-canvas {
-  background-color: #ffffff;
-}
-</style>

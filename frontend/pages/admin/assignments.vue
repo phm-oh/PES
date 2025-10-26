@@ -4,7 +4,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: 'dashboard' })
 
 const auth = useAuthStore()
 const config = useRuntimeConfig()

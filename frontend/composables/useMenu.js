@@ -1,4 +1,6 @@
-// ~/composables/useMenu.js
+// frontend/composables/useMenu.js
+// 🔧 แก้ไขให้เมนูตรงกับหน้าที่มีจริง 100%
+
 import { ref, isRef, computed } from 'vue'
 
 // ถ้า backend ส่ง 'evaluatee' ให้ map มาเป็น 'user'
@@ -9,69 +11,60 @@ function normalizeRole(r) {
 }
 
 const MAP = {
+  // ============= ADMIN MENU =============
   admin: [
     {
       label: 'MAIN',
       items: [
         { label: 'Dashboard', to: '/', icon: 'mdi-view-dashboard-outline' },
-        { label: 'Upload', to: '/upload', icon: 'mdi-tray-arrow-up' },
-
+        { label: 'Users', to: '/users', icon: 'mdi-account-multiple-outline' },
       ]
     },
     {
       label: 'MANAGEMENT',
       items: [
-        { label: 'Users', to: '/users', icon: 'mdi-account-cog-outline' },
         { label: 'Periods', to: '/admin/periods', icon: 'mdi-calendar-range' },
         { label: 'Topics', to: '/admin/topics', icon: 'mdi-format-list-bulleted' },
-        { label: 'Indicators',    to: '/admin/indicators', icon: 'mdi-chart-box-outline' },
+        { label: 'Indicators', to: '/admin/indicators', icon: 'mdi-chart-box-outline' },
         { label: 'Assignments', to: '/admin/assignments', icon: 'mdi-account-multiple-check' },
-        { label: 'Monitor', to: '/admin/monitor', icon: 'mdi-progress-check' },
-        { label: 'Reports', to: '/reports', icon: 'mdi-chart-areaspline' },
-        { label: 'Settings', to: '/settings', icon: 'mdi-cog-outline' },
+        { label: 'Reports', to: '/admin/reports', icon: 'mdi-chart-areaspline' },
         { label: 'API Docs', href: 'http://localhost:7000/docs', target: '_blank', icon: 'mdi-book-open-outline' },
-        
       ]
     }
   ],
 
+  // ============= EVALUATOR MENU =============
   evaluator: [
     {
       label: 'MAIN',
       items: [
         { label: 'Dashboard', to: '/', icon: 'mdi-view-dashboard-outline' },
-        { label: 'Upload', to: '/upload', icon: 'mdi-tray-arrow-up' },
       ]
     },
     {
       label: 'EVALUATION',
       items: [
-        { label: 'Assigned Tasks', to: '/eval/tasks', icon: 'mdi-clipboard-check-outline' },
-        { label: 'Scoring', to: '/eval/scoring', icon: 'mdi-lead-pencil' },
-        { label: 'Results', to: '/eval/results', icon: 'mdi-file-check-outline' },
-        { label: 'Users', to: '/users', icon: 'mdi-account-multiple-outline' },
+        { label: 'My Tasks', to: '/evaluator/tasks', icon: 'mdi-clipboard-check-outline' },
+        { label: 'Sign Document', to: '/evaluator/signature', icon: 'mdi-draw-pen' },
         { label: 'API Docs', href: 'http://localhost:7000/docs', target: '_blank', icon: 'mdi-book-open-outline' },
       ]
     }
   ],
 
+  // ============= USER (EVALUATEE) MENU =============
   user: [
     {
       label: 'MAIN',
       items: [
         { label: 'Dashboard', to: '/', icon: 'mdi-view-dashboard-outline' },
-        { label: 'Upload', to: '/upload', icon: 'mdi-tray-arrow-up' }, // ✅ บังคับมีแน่
       ]
     },
     {
       label: 'MY EVALUATION',
       items: [
-        { label: 'Profile', to: '/me', icon: 'mdi-account' },
-        { label: 'Indicators', to: '/me/indicators', icon: 'mdi-format-list-bulleted-square' },
-        { label: 'Self Assessment', to: '/me/self-score', icon: 'mdi-star-check-outline' },
+        { label: 'Profile', to: '/me/profile', icon: 'mdi-account' },
+        { label: 'Self Assessment', to: '/me/self-assess', icon: 'mdi-star-check-outline' },
         { label: 'Progress', to: '/me/progress', icon: 'mdi-progress-clock' },
-        { label: 'Export', to: '/me/export', icon: 'mdi-tray-arrow-down' },
-        { label: 'Feedback', to: '/me/feedback', icon: 'mdi-message-draw' },
       ]
     }
   ]

@@ -1,41 +1,20 @@
 <!-- frontend/pages/admin/reports.vue -->
-<!--  หน้ารายงานสรุป (Admin Only) -->
+<!-- 📊 หน้ารายงานสรุป (Admin Only) -->
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: 'dashboard' })
 
 const auth = useAuthStore()
 const config = useRuntimeConfig()
 
 // ============= STATE =============
-const items = ref([])
 const periods = ref([])
 const selectedPeriod = ref(null)
 const loading = ref(false)
+const reportData = ref(null)
 const errorMsg = ref('')
-
-// ============= TABLE CONFIG =============
-const headers = [
-  { title: 'รหัสพนักงาน', key: 'evaluatee_code', sortable: true },
-  { title: 'ชื่อ-สกุล', key: 'evaluatee_name', sortable: true },
-  { title: 'คะแนนประเมินตนเอง', key: 'self_score', sortable: true, align: 'center' },
-  { title: 'คะแนนกรรมการ', key: 'evaluator_score', sortable: true, align: 'center' },
-  { title: 'คะแนนรวม', key: 'total_score', sortable: true, align: 'center' },
-  { title: 'ระดับ', key: 'grade', sortable: true, align: 'center' },
-  { title: 'สถานะ', key: 'status', sortable: false }
-]
-
-// ============= COMPUTED =============
-const summary = computed(() => {
-  const total = items.value.length
-  const completed = items.value.filter(i => i.status === 'completed').length
-  const avgScore = items.value.length > 0 
-    ? (items.value.reduce((sum, i) => sum + (i.total_score || 0), 0) / total).toFixed(2)
-    : '0.00'
-  return { total, completed, avgScore }
-})
 
 // ============= METHODS =============
 async function fetchPeriods() {
@@ -46,33 +25,23 @@ async function fetchPeriods() {
     periods.value = res.items || []
     if (periods.value.length > 0) {
       selectedPeriod.value = periods.value[0].id
-      fetchReports()
+      fetchReport()
     }
   } catch (e) {
     console.error('Load periods failed:', e)
   }
 }
 
-async function fetchReports() {
+async function fetchReport() {
   if (!selectedPeriod.value) return
   
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await $fetch(`${config.public.apiBase}/api/reports/normalized`, {
-      params: { period_id: selectedPeriod.value },
+    const res = await $fetch(`${config.public.apiBase}/api/reports/overall/${selectedPeriod.value}`, {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
-    
-    // จัดรูปแบบข้อมูล
-    items.value = (res.items || []).map(item => ({
-      ...item,
-      self_score: item.self_score || 0,
-      evaluator_score: item.evaluator_score || 0,
-      total_score: (item.self_score || 0) + (item.evaluator_score || 0),
-      grade: getGrade((item.self_score || 0) + (item.evaluator_score || 0)),
-      status: item.status || 'pending'
-    }))
+    reportData.value = res.data || null
   } catch (e) {
     errorMsg.value = e.data?.message || e.message || 'Load failed'
   } finally {
@@ -80,70 +49,15 @@ async function fetchReports() {
   }
 }
 
-function getGrade(score) {
-  if (score >= 90) return 'ดีเยี่ยม'
-  if (score >= 80) return 'ดีมาก'
-  if (score >= 70) return 'ดี'
-  if (score >= 60) return 'พอใช้'
-  return 'ปรับปรุง'
-}
-
-function getGradeColor(grade) {
-  const colors = {
-    'ดีเยี่ยม': 'success',
-    'ดีมาก': 'info',
-    'ดี': 'primary',
-    'พอใช้': 'warning',
-    'ปรับปรุง': 'error'
-  }
-  return colors[grade] || 'default'
-}
-
-function getStatusColor(status) {
-  const colors = {
-    'completed': 'success',
-    'pending': 'warning',
-    'draft': 'default'
-  }
-  return colors[status] || 'default'
-}
-
-function getStatusText(status) {
-  const texts = {
-    'completed': 'สำเร็จ',
-    'pending': 'รอดำเนินการ',
-    'draft': 'แบบร่าง'
-  }
-  return texts[status] || status
-}
-
 async function exportCSV() {
-  if (items.value.length === 0) {
-    errorMsg.value = 'ไม่มีข้อมูลให้ export'
-    return
+  try {
+    // TODO: Implement CSV export
+    alert('CSV Export coming soon!')
+  } catch (e) {
+    errorMsg.value = e.data?.message || e.message || 'Export failed'
   }
-
-  // สร้าง CSV
-  const headers = ['รหัสพนักงาน', 'ชื่อ-สกุล', 'คะแนนตนเอง', 'คะแนนกรรมการ', 'คะแนนรวม', 'ระดับ', 'สถานะ']
-  const rows = items.value.map(i => [
-    i.evaluatee_code || '',
-    i.evaluatee_name || '',
-    i.self_score,
-    i.evaluator_score,
-    i.total_score,
-    i.grade,
-    getStatusText(i.status)
-  ])
-  
-  const csv = [headers, ...rows].map(row => row.join(',')).join('\n')
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(blob)
-  link.download = `report_period_${selectedPeriod.value}_${Date.now()}.csv`
-  link.click()
 }
 
-// ============= LIFECYCLE =============
 onMounted(() => {
   fetchPeriods()
 })
@@ -151,90 +65,91 @@ onMounted(() => {
 
 <template>
   <div class="pa-4">
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <span class="text-h5">รายงานสรุปผลการประเมิน</span>
-      </v-card-title>
+    <!-- Header -->
+    <div class="d-flex justify-space-between align-center mb-6">
+      <div>
+        <h1 class="text-h4 font-weight-bold">Reports</h1>
+        <p class="text-subtitle-1 text-medium-emphasis mt-2">รายงานสรุปผลการประเมิน</p>
+      </div>
+      <v-btn
+        color="primary"
+        prepend-icon="mdi-download"
+        @click="exportCSV"
+        :disabled="!reportData"
+      >
+        Export CSV
+      </v-btn>
+    </div>
 
+    <!-- Period Selector -->
+    <v-card class="mb-6">
       <v-card-text>
-        <!-- Filter -->
-        <v-row class="mb-4">
-          <v-col cols="12" md="6">
-            <v-select
-              v-model="selectedPeriod"
-              :items="periods"
-              item-title="name_th"
-              item-value="id"
-              label="เลือกรอบการประเมิน"
-              @update:model-value="fetchReports"
-            />
+        <v-select
+          v-model="selectedPeriod"
+          :items="periods"
+          item-title="name_th"
+          item-value="id"
+          label="เลือกรอบการประเมิน"
+          density="comfortable"
+          variant="outlined"
+          @update:model-value="fetchReport"
+        />
+      </v-card-text>
+    </v-card>
+
+    <!-- Loading -->
+    <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-4" />
+
+    <!-- Error Message -->
+    <v-alert v-if="errorMsg" type="error" class="mb-4">{{ errorMsg }}</v-alert>
+
+    <!-- Report Content -->
+    <v-card v-if="reportData">
+      <v-card-title>สรุปภาพรวม</v-card-title>
+      <v-card-text>
+        <v-row>
+          <v-col cols="12" md="3">
+            <v-card variant="tonal" color="primary">
+              <v-card-text class="text-center">
+                <div class="text-h3 font-weight-bold">{{ reportData.total_evaluatees || 0 }}</div>
+                <div class="text-subtitle-2 mt-2">ผู้ถูกประเมินทั้งหมด</div>
+              </v-card-text>
+            </v-card>
           </v-col>
-          <v-col cols="12" md="6" class="d-flex align-center justify-end">
-            <v-btn color="success" @click="exportCSV" :disabled="items.length === 0">
-              <v-icon left>mdi-download</v-icon>
-              Export CSV
-            </v-btn>
+          <v-col cols="12" md="3">
+            <v-card variant="tonal" color="success">
+              <v-card-text class="text-center">
+                <div class="text-h3 font-weight-bold">{{ reportData.completed || 0 }}</div>
+                <div class="text-subtitle-2 mt-2">ประเมินเสร็จแล้ว</div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-card variant="tonal" color="warning">
+              <v-card-text class="text-center">
+                <div class="text-h3 font-weight-bold">{{ reportData.in_progress || 0 }}</div>
+                <div class="text-subtitle-2 mt-2">กำลังดำเนินการ</div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-card variant="tonal" color="info">
+              <v-card-text class="text-center">
+                <div class="text-h3 font-weight-bold">{{ reportData.average_score || 0 }}</div>
+                <div class="text-subtitle-2 mt-2">คะแนนเฉลี่ย</div>
+              </v-card-text>
+            </v-card>
           </v-col>
         </v-row>
+      </v-card-text>
+    </v-card>
 
-        <!-- Summary Cards -->
-        <v-row class="mb-4">
-          <v-col cols="12" md="4">
-            <v-card color="primary" variant="tonal">
-              <v-card-text class="text-center">
-                <div class="text-h4">{{ summary.total }}</div>
-                <div class="text-subtitle-1">จำนวนผู้ถูกประเมินทั้งหมด</div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-          <v-col cols="12" md="4">
-            <v-card color="success" variant="tonal">
-              <v-card-text class="text-center">
-                <div class="text-h4">{{ summary.completed }}</div>
-                <div class="text-subtitle-1">ประเมินเสร็จสมบูรณ์</div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-          <v-col cols="12" md="4">
-            <v-card color="info" variant="tonal">
-              <v-card-text class="text-center">
-                <div class="text-h4">{{ summary.avgScore }}</div>
-                <div class="text-subtitle-1">คะแนนเฉลี่ย</div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-
-        <v-alert v-if="errorMsg" type="error" dismissible @click:close="errorMsg = ''">
-          {{ errorMsg }}
-        </v-alert>
-
-        <!-- Data Table -->
-        <v-data-table
-          :headers="headers"
-          :items="items"
-          :loading="loading"
-          class="elevation-1"
-        >
-          <template #item.grade="{ item }">
-            <v-chip :color="getGradeColor(item.grade)" size="small">
-              {{ item.grade }}
-            </v-chip>
-          </template>
-
-          <template #item.status="{ item }">
-            <v-chip :color="getStatusColor(item.status)" size="small">
-              {{ getStatusText(item.status) }}
-            </v-chip>
-          </template>
-
-          <template #no-data>
-            <div class="text-center pa-4">
-              <v-icon size="64" color="grey">mdi-file-document-outline</v-icon>
-              <div class="text-subtitle-1 mt-2">ไม่มีข้อมูล</div>
-            </div>
-          </template>
-        </v-data-table>
+    <!-- Empty State -->
+    <v-card v-else-if="!loading">
+      <v-card-text class="text-center py-12">
+        <v-icon size="64" color="grey-lighten-1">mdi-chart-box-outline</v-icon>
+        <div class="text-h6 mt-4 text-medium-emphasis">ไม่มีข้อมูลรายงาน</div>
+        <div class="text-body-2 mt-2 text-medium-emphasis">เลือกรอบการประเมินเพื่อดูรายงาน</div>
       </v-card-text>
     </v-card>
   </div>

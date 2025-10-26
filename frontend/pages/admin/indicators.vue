@@ -1,10 +1,10 @@
 <!-- frontend/pages/admin/indicators.vue -->
-<!--  หน้าจัดการตัวชี้วัด (Admin Only) -->
+<!-- 📋 หน้าจัดการตัวชี้วัด (Admin Only) -->
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: 'dashboard' })
 
 const auth = useAuthStore()
 const config = useRuntimeConfig()
@@ -18,23 +18,21 @@ const dialogDelete = ref(false)
 const editedIndex = ref(-1)
 const editedItem = ref({
   id: null,
+  topic_id: null,
   code: '',
   name_th: '',
-  description: '',
-  topic_id: null,
-  weight: 0,
-  type: 'scale',
+  type: 'score_1_4',
+  weight: 1,
   order: 1,
   active: 1
 })
 const defaultItem = {
   id: null,
+  topic_id: null,
   code: '',
   name_th: '',
-  description: '',
-  topic_id: null,
-  weight: 0,
-  type: 'scale',
+  type: 'score_1_4',
+  weight: 1,
   order: 1,
   active: 1
 }
@@ -45,12 +43,17 @@ const successMsg = ref('')
 const headers = [
   { title: 'รหัส', key: 'code', sortable: true },
   { title: 'ชื่อตัวชี้วัด', key: 'name_th', sortable: true },
-  { title: 'หัวข้อ', key: 'topic_name', sortable: false },
+  { title: 'หัวข้อ', key: 'topic_name', sortable: true },
+  { title: 'ประเภท', key: 'type', sortable: true },
   { title: 'น้ำหนัก', key: 'weight', sortable: true, align: 'center' },
-  { title: 'ประเภท', key: 'type', sortable: true, align: 'center' },
   { title: 'ลำดับ', key: 'order', sortable: true, align: 'center' },
   { title: 'สถานะ', key: 'active', sortable: false },
   { title: 'จัดการ', key: 'actions', sortable: false, align: 'center' }
+]
+
+const typeOptions = [
+  { title: 'คะแนน 1-4', value: 'score_1_4' },
+  { title: 'ใช่/ไม่ใช่', value: 'yes_no' }
 ]
 
 // ============= COMPUTED =============
@@ -76,7 +79,7 @@ async function fetchItems() {
 
 async function fetchTopics() {
   try {
-    const res = await $fetch(`${config.public.apiBase}/api/topics/active`, {
+    const res = await $fetch(`${config.public.apiBase}/api/topics`, {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
     topics.value = res.items || []
@@ -85,43 +88,19 @@ async function fetchTopics() {
   }
 }
 
-function editItem(item) {
-  editedIndex.value = items.value.indexOf(item)
-  editedItem.value = { ...item }
+function openDialog(item = null) {
+  if (item) {
+    editedIndex.value = items.value.indexOf(item)
+    editedItem.value = { ...item }
+  } else {
+    editedIndex.value = -1
+    editedItem.value = { ...defaultItem }
+  }
   dialog.value = true
 }
 
-function deleteItem(item) {
-  editedIndex.value = items.value.indexOf(item)
-  editedItem.value = { ...item }
-  dialogDelete.value = true
-}
-
-async function deleteItemConfirm() {
-  try {
-    await $fetch(`${config.public.apiBase}/api/indicators/${editedItem.value.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${auth.token}` }
-    })
-    successMsg.value = 'ลบสำเร็จ'
-    await fetchItems()
-  } catch (e) {
-    errorMsg.value = e.data?.message || e.message || 'Delete failed'
-  } finally {
-    closeDelete()
-  }
-}
-
-function close() {
+function closeDialog() {
   dialog.value = false
-  setTimeout(() => {
-    editedItem.value = { ...defaultItem }
-    editedIndex.value = -1
-  }, 300)
-}
-
-function closeDelete() {
-  dialogDelete.value = false
   setTimeout(() => {
     editedItem.value = { ...defaultItem }
     editedIndex.value = -1
@@ -132,13 +111,9 @@ async function save() {
   errorMsg.value = ''
   successMsg.value = ''
   
-  if (!editedItem.value.code || !editedItem.value.name_th || !editedItem.value.topic_id) {
-    errorMsg.value = 'กรุณากรอกข้อมูลให้ครบ'
-    return
-  }
-
   try {
     if (editedIndex.value > -1) {
+      // Update
       await $fetch(`${config.public.apiBase}/api/indicators/${editedItem.value.id}`, {
         method: 'PUT',
         headers: { 
@@ -149,6 +124,7 @@ async function save() {
       })
       successMsg.value = 'แก้ไขสำเร็จ'
     } else {
+      // Create
       await $fetch(`${config.public.apiBase}/api/indicators`, {
         method: 'POST',
         headers: { 
@@ -159,159 +135,191 @@ async function save() {
       })
       successMsg.value = 'เพิ่มสำเร็จ'
     }
+    
+    closeDialog()
     await fetchItems()
-    close()
   } catch (e) {
     errorMsg.value = e.data?.message || e.message || 'Save failed'
   }
 }
 
-// ============= LIFECYCLE =============
+function openDeleteDialog(item) {
+  editedItem.value = { ...item }
+  dialogDelete.value = true
+}
+
+function closeDeleteDialog() {
+  dialogDelete.value = false
+  setTimeout(() => {
+    editedItem.value = { ...defaultItem }
+  }, 300)
+}
+
+async function confirmDelete() {
+  try {
+    await $fetch(`${config.public.apiBase}/api/indicators/${editedItem.value.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.token}` }
+    })
+    
+    successMsg.value = 'ลบสำเร็จ'
+    closeDeleteDialog()
+    await fetchItems()
+  } catch (e) {
+    errorMsg.value = e.data?.message || e.message || 'Delete failed'
+  }
+}
+
 onMounted(() => {
-  fetchTopics()
   fetchItems()
+  fetchTopics()
 })
 </script>
 
 <template>
   <div class="pa-4">
+    <!-- Header -->
+    <div class="d-flex justify-space-between align-center mb-6">
+      <div>
+        <h1 class="text-h4 font-weight-bold">Indicators</h1>
+        <p class="text-subtitle-1 text-medium-emphasis mt-2">จัดการตัวชี้วัดการประเมิน</p>
+      </div>
+      <v-btn color="primary" prepend-icon="mdi-plus" @click="openDialog()">
+        เพิ่มตัวชี้วัด
+      </v-btn>
+    </div>
+
+    <!-- Messages -->
+    <v-alert v-if="errorMsg" type="error" class="mb-4" closable @click:close="errorMsg = ''">
+      {{ errorMsg }}
+    </v-alert>
+    <v-alert v-if="successMsg" type="success" class="mb-4" closable @click:close="successMsg = ''">
+      {{ successMsg }}
+    </v-alert>
+
+    <!-- Table -->
     <v-card>
-      <v-card-title class="d-flex align-center">
-        <span class="text-h5">จัดการตัวชี้วัด</span>
-        <v-spacer />
-        <v-btn color="primary" @click="dialog = true">
-          <v-icon left>mdi-plus</v-icon>
-          เพิ่มตัวชี้วัด
-        </v-btn>
-      </v-card-title>
+      <v-data-table
+        :headers="headers"
+        :items="items"
+        :loading="loading"
+        loading-text="กำลังโหลด..."
+        no-data-text="ไม่มีข้อมูล"
+        items-per-page-text="แสดงต่อหน้า:"
+        density="comfortable"
+      >
+        <template #item.type="{ item }">
+          <v-chip size="small" :color="item.type === 'score_1_4' ? 'primary' : 'success'">
+            {{ item.type === 'score_1_4' ? 'คะแนน 1-4' : 'ใช่/ไม่ใช่' }}
+          </v-chip>
+        </template>
 
-      <v-card-text>
-        <v-alert v-if="errorMsg" type="error" dismissible @click:close="errorMsg = ''">
-          {{ errorMsg }}
-        </v-alert>
-        <v-alert v-if="successMsg" type="success" dismissible @click:close="successMsg = ''">
-          {{ successMsg }}
-        </v-alert>
+        <template #item.active="{ item }">
+          <v-chip size="small" :color="item.active ? 'success' : 'error'">
+            {{ item.active ? 'เปิดใช้งาน' : 'ปิดใช้งาน' }}
+          </v-chip>
+        </template>
 
-        <v-data-table
-          :headers="headers"
-          :items="items"
-          :loading="loading"
-          class="elevation-1"
-        >
-          <template #item.active="{ item }">
-            <v-chip :color="item.active ? 'success' : 'default'" size="small">
-              {{ item.active ? 'ใช้งาน' : 'ปิด' }}
-            </v-chip>
-          </template>
-
-          <template #item.type="{ item }">
-            <v-chip size="small">
-              {{ item.type === 'scale' ? 'คะแนน' : item.type === 'yes_no' ? 'ใช่/ไม่ใช่' : item.type }}
-            </v-chip>
-          </template>
-
-          <template #item.actions="{ item }">
-            <v-icon size="small" class="me-2" @click="editItem(item)">mdi-pencil</v-icon>
-            <v-icon size="small" @click="deleteItem(item)">mdi-delete</v-icon>
-          </template>
-        </v-data-table>
-      </v-card-text>
+        <template #item.actions="{ item }">
+          <v-btn
+            icon="mdi-pencil"
+            size="small"
+            variant="text"
+            @click="openDialog(item)"
+          />
+          <v-btn
+            icon="mdi-delete"
+            size="small"
+            variant="text"
+            color="error"
+            @click="openDeleteDialog(item)"
+          />
+        </template>
+      </v-data-table>
     </v-card>
 
-    <!-- Dialog สร้าง/แก้ไข -->
+    <!-- Create/Edit Dialog -->
     <v-dialog v-model="dialog" max-width="600px" persistent>
       <v-card>
         <v-card-title>{{ formTitle }}</v-card-title>
         <v-card-text>
-          <v-container>
-            <v-row>
-              <v-col cols="12" sm="6">
-                <v-text-field
-                  v-model="editedItem.code"
-                  label="รหัส *"
-                  required
-                />
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-select
-                  v-model="editedItem.topic_id"
-                  :items="topics"
-                  item-title="title_th"
-                  item-value="id"
-                  label="หัวข้อ *"
-                  required
-                />
-              </v-col>
-              <v-col cols="12">
-                <v-text-field
-                  v-model="editedItem.name_th"
-                  label="ชื่อตัวชี้วัด *"
-                  required
-                />
-              </v-col>
-              <v-col cols="12">
-                <v-textarea
-                  v-model="editedItem.description"
-                  label="รายละเอียด"
-                  rows="2"
-                />
-              </v-col>
-              <v-col cols="12" sm="4">
-                <v-text-field
-                  v-model.number="editedItem.weight"
-                  label="น้ำหนัก"
-                  type="number"
-                />
-              </v-col>
-              <v-col cols="12" sm="4">
-                <v-select
-                  v-model="editedItem.type"
-                  :items="[
-                    { title: 'คะแนน', value: 'scale' },
-                    { title: 'ใช่/ไม่ใช่', value: 'yes_no' }
-                  ]"
-                  label="ประเภท"
-                />
-              </v-col>
-              <v-col cols="12" sm="4">
-                <v-text-field
-                  v-model.number="editedItem.order"
-                  label="ลำดับ"
-                  type="number"
-                />
-              </v-col>
-              <v-col cols="12">
-                <v-switch
-                  v-model="editedItem.active"
-                  :true-value="1"
-                  :false-value="0"
-                  label="ใช้งาน"
-                  color="success"
-                />
-              </v-col>
-            </v-row>
-          </v-container>
+          <v-form>
+            <v-select
+              v-model="editedItem.topic_id"
+              :items="topics"
+              item-title="title_th"
+              item-value="id"
+              label="หัวข้อ *"
+              density="comfortable"
+              variant="outlined"
+              class="mb-2"
+            />
+            <v-text-field
+              v-model="editedItem.code"
+              label="รหัส *"
+              density="comfortable"
+              variant="outlined"
+              class="mb-2"
+            />
+            <v-text-field
+              v-model="editedItem.name_th"
+              label="ชื่อตัวชี้วัด *"
+              density="comfortable"
+              variant="outlined"
+              class="mb-2"
+            />
+            <v-select
+              v-model="editedItem.type"
+              :items="typeOptions"
+              label="ประเภท *"
+              density="comfortable"
+              variant="outlined"
+              class="mb-2"
+            />
+            <v-text-field
+              v-model.number="editedItem.weight"
+              label="น้ำหนัก"
+              type="number"
+              density="comfortable"
+              variant="outlined"
+              class="mb-2"
+            />
+            <v-text-field
+              v-model.number="editedItem.order"
+              label="ลำดับ"
+              type="number"
+              density="comfortable"
+              variant="outlined"
+              class="mb-2"
+            />
+            <v-switch
+              v-model="editedItem.active"
+              :label="editedItem.active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'"
+              color="primary"
+              :true-value="1"
+              :false-value="0"
+            />
+          </v-form>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn color="grey" variant="text" @click="close">ยกเลิก</v-btn>
-          <v-btn color="primary" variant="elevated" @click="save">บันทึก</v-btn>
+          <v-btn variant="text" @click="closeDialog">ยกเลิก</v-btn>
+          <v-btn color="primary" variant="flat" @click="save">บันทึก</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Dialog ยืนยันลบ -->
+    <!-- Delete Dialog -->
     <v-dialog v-model="dialogDelete" max-width="400px">
       <v-card>
         <v-card-title>ยืนยันการลบ</v-card-title>
         <v-card-text>
-          คุณต้องการลบตัวชี้วัด <strong>{{ editedItem.name_th }}</strong> ใช่หรือไม่?
+          คุณแน่ใจหรือไม่ที่จะลบ "{{ editedItem.name_th }}"?
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn color="grey" variant="text" @click="closeDelete">ยกเลิก</v-btn>
-          <v-btn color="error" variant="elevated" @click="deleteItemConfirm">ลบ</v-btn>
+          <v-btn variant="text" @click="closeDeleteDialog">ยกเลิก</v-btn>
+          <v-btn color="error" variant="flat" @click="confirmDelete">ลบ</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

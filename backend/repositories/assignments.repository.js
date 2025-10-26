@@ -1,4 +1,6 @@
-// repositories/assignments.js
+// backend/repositories/assignments.repository.js
+// ✨ แก้ไข: เพิ่ม JOIN users + periods ให้แสดงชื่อ
+
 const db = require('../db/knex');
 const TABLE = 'assignments';
 
@@ -16,14 +18,24 @@ exports.hasPairInPeriod = async ({ period_id, evaluator_id, evaluatee_id }) => {
   return !!row;
 };
 
-
 // ============================================================
 // ✅ FUNCTIONS ใหม่ (CRUD + เพิ่มเติม)
 // ============================================================
 
-// ดึงทั้งหมด
+// ดึงทั้งหมด พร้อม JOIN
+// ✨ แก้ไข: เพิ่ม JOIN users + periods
 exports.findAll = async () => {
-  return db(TABLE).select('*').orderBy('created_at', 'desc');
+  return db(TABLE)
+    .select(
+      'assignments.*',
+      'evaluator.name_th as evaluator_name',
+      'evaluatee.name_th as evaluatee_name',
+      'periods.name_th as period_name'
+    )
+    .leftJoin('users as evaluator', 'assignments.evaluator_id', 'evaluator.id')
+    .leftJoin('users as evaluatee', 'assignments.evaluatee_id', 'evaluatee.id')
+    .leftJoin('evaluation_periods as periods', 'assignments.period_id', 'periods.id')
+    .orderBy('assignments.created_at', 'desc');
 };
 
 // ดึงรายการเดียว
@@ -31,18 +43,34 @@ exports.findById = async (id) => {
   return db(TABLE).where({ id }).first();
 };
 
-// ดึงงานที่กรรมการได้รับมอบหมาย
+// ดึงงานที่กรรมการได้รับมอบหมาย พร้อม JOIN
+// ✨ แก้ไข: เพิ่ม JOIN
 exports.findByEvaluator = async (evaluatorId) => {
   return db(TABLE)
-    .where({ evaluator_id: evaluatorId })
-    .orderBy('created_at', 'desc');
+    .select(
+      'assignments.*',
+      'evaluatee.name_th as evaluatee_name',
+      'periods.name_th as period_name'
+    )
+    .leftJoin('users as evaluatee', 'assignments.evaluatee_id', 'evaluatee.id')
+    .leftJoin('evaluation_periods as periods', 'assignments.period_id', 'periods.id')
+    .where('assignments.evaluator_id', evaluatorId)
+    .orderBy('assignments.created_at', 'desc');
 };
 
-// ดึงตาม period
+// ดึงตาม period พร้อม JOIN
+// ✨ แก้ไข: เพิ่ม JOIN
 exports.findByPeriod = async (periodId) => {
   return db(TABLE)
-    .where({ period_id: periodId })
-    .orderBy('created_at', 'desc');
+    .select(
+      'assignments.*',
+      'evaluator.name_th as evaluator_name',
+      'evaluatee.name_th as evaluatee_name'
+    )
+    .leftJoin('users as evaluator', 'assignments.evaluator_id', 'evaluator.id')
+    .leftJoin('users as evaluatee', 'assignments.evaluatee_id', 'evaluatee.id')
+    .where('assignments.period_id', periodId)
+    .orderBy('assignments.created_at', 'desc');
 };
 
 // สร้างใหม่

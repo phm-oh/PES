@@ -45,19 +45,23 @@ exports.getByType = async (req, res, next) => {
 };
 
 // POST /api/indicators
-// ✨ แก้ไข: เอา order ออก เพราะ schema ไม่มีฟิลด์นี้
+// ✨ แก้ไข: เพิ่ม code เข้าไป
 exports.create = async (req, res, next) => {
   try {
-    const { topic_id, name_th, type, weight } = req.body;
+    const { topic_id, code, name_th, type, weight } = req.body;
+    
     if (!topic_id) return res.status(400).json({ success: false, message: 'topic_id required' });
     if (!name_th) return res.status(400).json({ success: false, message: 'name_th required' });
+    if (!code) return res.status(400).json({ success: false, message: 'code required' });
 
     const created = await indicatorsRepo.create({
       topic_id,
+      code,          // ✨ เพิ่ม code
       name_th,
       type: type || 'score_1_4',
       weight: weight || 1
     });
+    
     res.status(201).json({ success: true, data: created });
   } catch (e) {
     next(e);

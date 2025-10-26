@@ -5,7 +5,6 @@ const db = require('../db/knex');
 const TABLE = 'indicators';
 
 // ดึงทั้งหมด (เรียงตาม topic_id แล้วตาม id)
-// ✨ แก้ไข: เอา order ออก ใช้ id แทน
 exports.findAll = async () => {
   return db(TABLE).select('*').orderBy('topic_id', 'asc').orderBy('id', 'asc');
 };
@@ -16,7 +15,6 @@ exports.findById = async (id) => {
 };
 
 // ดึงตาม topic_id (เรียงตาม id)
-// ✨ แก้ไข: เอา order ออก ใช้ id แทน
 exports.findByTopic = async (topicId) => {
   return db(TABLE).where({ topic_id: topicId }).orderBy('id', 'asc');
 };
@@ -27,17 +25,17 @@ exports.findByType = async (type) => {
 };
 
 // สร้างใหม่
-// ✨ แก้ไข: เอา order ออก
 exports.create = async (payload) => {
   const [id] = await db(TABLE).insert(payload);
   return exports.findById(id);
 };
 
 // แก้ไข
-// ✨ แก้ไข: เอา order ออก
+// ✨ แก้ไข: เพิ่ม code ใน update
 exports.update = async (id, payload) => {
   const data = {};
   if (payload.topic_id !== undefined) data.topic_id = payload.topic_id;
+  if (payload.code !== undefined) data.code = payload.code;        // ✨ เพิ่มบรรทัดนี้
   if (payload.name_th !== undefined) data.name_th = payload.name_th;
   if (payload.type !== undefined) data.type = payload.type;
   if (payload.weight !== undefined) data.weight = payload.weight;

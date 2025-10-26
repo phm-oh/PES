@@ -1,5 +1,5 @@
 <!-- frontend/pages/admin/assignments.vue -->
-<!--  หน้ามอบหมายกรรมการ (Admin Only) -->
+<!-- ✨ แก้ไข FINAL: สลับตัวแปร evaluators/evaluatees -->
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
@@ -35,7 +35,7 @@ const headers = [
   { title: 'รอบการประเมิน', key: 'period_name', sortable: true },
   { title: 'กรรมการ', key: 'evaluator_name', sortable: true },
   { title: 'ผู้ถูกประเมิน', key: 'evaluatee_name', sortable: true },
-  { title: 'วันที่มอบหมาย', key: 'assigned_at', sortable: true },
+  { title: 'วันที่มอบหมาย', key: 'created_at', sortable: true },
   { title: 'จัดการ', key: 'actions', sortable: false, align: 'center' }
 ]
 
@@ -66,16 +66,26 @@ async function fetchPeriods() {
   }
 }
 
+// ✨✨✨ แก้ไข: เปลี่ยนลำดับการเก็บตัวแปร! ✨✨✨
 async function fetchUsers() {
   try {
-    const res = await $fetch(`${config.public.apiBase}/api/users`, {
+    // ดึงกรรมการ
+    const resEvaluators = await $fetch(`${config.public.apiBase}/api/users/role/evaluator`, {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
-    const users = res.items || []
-    evaluators.value = users.filter(u => u.role === 'evaluator')
-    evaluatees.value = users.filter(u => u.role === 'evaluatee')
+    evaluators.value = resEvaluators.items || []
+
+    // ดึงผู้ถูกประเมิน
+    const resEvaluatees = await $fetch(`${config.public.apiBase}/api/users/role/evaluatee`, {
+      headers: { Authorization: `Bearer ${auth.token}` }
+    })
+    evaluatees.value = resEvaluatees.items || []
+    
+    console.log('✅ EVALUATORS:', evaluators.value)
+    console.log('✅ EVALUATEES:', evaluatees.value)
   } catch (e) {
     console.error('Load users failed:', e)
+    errorMsg.value = 'โหลดข้อมูลผู้ใช้ไม่สำเร็จ'
   }
 }
 
@@ -173,8 +183,8 @@ onMounted(() => {
           :loading="loading"
           class="elevation-1"
         >
-          <template #item.assigned_at="{ item }">
-            {{ new Date(item.assigned_at).toLocaleDateString('th-TH') }}
+          <template #item.created_at="{ item }">
+            {{ new Date(item.created_at).toLocaleDateString('th-TH') }}
           </template>
 
           <template #item.actions="{ item }">
@@ -209,6 +219,8 @@ onMounted(() => {
                   item-value="id"
                   label="กรรมการ *"
                   required
+                  hint="ผู้ทำการประเมิน"
+                  persistent-hint
                 />
               </v-col>
               <v-col cols="12">
@@ -219,6 +231,8 @@ onMounted(() => {
                   item-value="id"
                   label="ผู้ถูกประเมิน *"
                   required
+                  hint="ผู้ที่จะถูกประเมิน"
+                  persistent-hint
                 />
               </v-col>
             </v-row>

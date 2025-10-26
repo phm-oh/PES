@@ -259,3 +259,73 @@ exports.listServer = async (req, res, next) => {
     next(e);
   }
 };
+
+
+// ==========================================
+//  ส่วนเพิ่มเติม: วางต่อท้าย users.controller.js
+// ==========================================
+// เพิ่ม 2 functions ใหม่:
+// 1. exports.getMe - สำหรับดึงข้อมูลผู้ใช้ที่ login อยู่
+// 2. exports.getByRole - สำหรับดึง users ตาม role (สำหรับ dropdown)
+// ==========================================
+
+/**
+ *  GET /api/users/me
+ * ---------------------------
+ * - ดึงข้อมูลผู้ใช้ที่ล็อกอินอยู่ (จาก req.user)
+ * - ใช้สำหรับหน้า Profile หรือแสดงชื่อผู้ใช้
+ */
+exports.getMe = async (req, res, next) => {
+  try {
+    const me = req.user
+      ? {
+          id: req.user.id,
+          name_th: req.user.name_th || req.user.name,
+          email: req.user.email,
+          role: req.user.role,
+        }
+      : null;
+
+    res.json({
+      success: true,
+      items: me ? [me] : [],
+      total: me ? 1 : 0,
+    });
+  } catch (e) {
+    next(e);
+  }
+};
+
+/**
+ *  GET /api/users/role/:role
+ * ---------------------------
+ * - ดึง users ตาม role (evaluator, evaluatee, admin)
+ * - ใช้สำหรับ dropdown มอบหมายผู้ประเมิน/ผู้ถูกประเมิน
+ */
+exports.getByRole = async (req, res, next) => {
+  try {
+    const { role } = req.params;
+    
+    // ตรวจสอบ role ที่อนุญาต
+    const allowedRoles = ['admin', 'evaluator', 'evaluatee'];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid role. Allowed: admin, evaluator, evaluatee' 
+      });
+    }
+
+    const rows = await db("users")
+      .select("id", "name_th", "email", "role", "department_id")
+      .where({ role, status: 'active' })
+      .orderBy("name_th", "asc");
+
+    res.json({
+      success: true,
+      items: rows,
+      total: rows.length,
+    });
+  } catch (e) {
+    next(e);
+  }
+};

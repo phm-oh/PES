@@ -1,5 +1,5 @@
 <!-- frontend/pages/admin/indicators.vue -->
-<!-- 📋 หน้าจัดการตัวชี้วัด (Admin Only) -->
+<!-- ✨ แก้ไขครั้งที่ 2: generate code ตั้งแต่เปิด dialog + validate ก่อนส่ง -->
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
@@ -23,7 +23,6 @@ const editedItem = ref({
   name_th: '',
   type: 'score_1_4',
   weight: 1,
-  order: 1,
   active: 1
 })
 const defaultItem = {
@@ -33,7 +32,6 @@ const defaultItem = {
   name_th: '',
   type: 'score_1_4',
   weight: 1,
-  order: 1,
   active: 1
 }
 const errorMsg = ref('')
@@ -46,7 +44,6 @@ const headers = [
   { title: 'หัวข้อ', key: 'topic_name', sortable: true },
   { title: 'ประเภท', key: 'type', sortable: true },
   { title: 'น้ำหนัก', key: 'weight', sortable: true, align: 'center' },
-  { title: 'ลำดับ', key: 'order', sortable: true, align: 'center' },
   { title: 'สถานะ', key: 'active', sortable: false },
   { title: 'จัดการ', key: 'actions', sortable: false, align: 'center' }
 ]
@@ -95,6 +92,8 @@ function openDialog(item = null) {
   } else {
     editedIndex.value = -1
     editedItem.value = { ...defaultItem }
+    const timestamp = Date.now().toString().slice(-6)
+    editedItem.value.code = `IND-${timestamp}`
   }
   dialog.value = true
 }
@@ -111,31 +110,50 @@ async function save() {
   errorMsg.value = ''
   successMsg.value = ''
   
+  if (!editedItem.value.name_th) {
+    errorMsg.value = 'กรุณากรอกชื่อตัวชี้วัด'
+    return
+  }
+  if (!editedItem.value.topic_id) {
+    errorMsg.value = 'กรุณาเลือกหัวข้อ'
+    return
+  }
+  if (!editedItem.value.code) {
+    const timestamp = Date.now().toString().slice(-6)
+    editedItem.value.code = `IND-${timestamp}`
+  }
+  
+  const payload = {
+    topic_id: editedItem.value.topic_id,
+    code: editedItem.value.code,
+    name_th: editedItem.value.name_th,
+    type: editedItem.value.type || 'score_1_4',
+    weight: editedItem.value.weight || 1,
+    active: editedItem.value.active ? 1 : 0
+  }
+  
   try {
     if (editedIndex.value > -1) {
-      // Update
       await $fetch(`${config.public.apiBase}/api/indicators/${editedItem.value.id}`, {
         method: 'PUT',
         headers: { 
           Authorization: `Bearer ${auth.token}`,
           'Content-Type': 'application/json'
         },
-        body: editedItem.value
+        body: payload
       })
       successMsg.value = 'แก้ไขสำเร็จ'
     } else {
-      // Create
       await $fetch(`${config.public.apiBase}/api/indicators`, {
         method: 'POST',
         headers: { 
           Authorization: `Bearer ${auth.token}`,
           'Content-Type': 'application/json'
         },
-        body: editedItem.value
+        body: payload
       })
       successMsg.value = 'เพิ่มสำเร็จ'
     }
-    
     closeDialog()
     await fetchItems()
   } catch (e) {
@@ -161,7 +179,6 @@ async function confirmDelete() {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${auth.token}` }
     })
-    
     successMsg.value = 'ลบสำเร็จ'
     closeDeleteDialog()
     await fetchItems()
@@ -178,7 +195,6 @@ onMounted(() => {
 
 <template>
   <div class="pa-4">
-    <!-- Header -->
     <div class="d-flex justify-space-between align-center mb-6">
       <div>
         <h1 class="text-h4 font-weight-bold">Indicators</h1>
@@ -189,7 +205,6 @@ onMounted(() => {
       </v-btn>
     </div>
 
-    <!-- Messages -->
     <v-alert v-if="errorMsg" type="error" class="mb-4" closable @click:close="errorMsg = ''">
       {{ errorMsg }}
     </v-alert>
@@ -197,7 +212,6 @@ onMounted(() => {
       {{ successMsg }}
     </v-alert>
 
-    <!-- Table -->
     <v-card>
       <v-data-table
         :headers="headers"
@@ -221,24 +235,12 @@ onMounted(() => {
         </template>
 
         <template #item.actions="{ item }">
-          <v-btn
-            icon="mdi-pencil"
-            size="small"
-            variant="text"
-            @click="openDialog(item)"
-          />
-          <v-btn
-            icon="mdi-delete"
-            size="small"
-            variant="text"
-            color="error"
-            @click="openDeleteDialog(item)"
-          />
+          <v-btn icon="mdi-pencil" size="small" variant="text" @click="openDialog(item)" />
+          <v-btn icon="mdi-delete" size="small" variant="text" color="error" @click="openDeleteDialog(item)" />
         </template>
       </v-data-table>
     </v-card>
 
-    <!-- Create/Edit Dialog -->
     <v-dialog v-model="dialog" max-width="600px" persistent>
       <v-card>
         <v-card-title>{{ formTitle }}</v-card-title>
@@ -260,6 +262,9 @@ onMounted(() => {
               density="comfortable"
               variant="outlined"
               class="mb-2"
+              hint="ระบบสร้างให้อัตโนมัติ (แก้ได้)"
+              persistent-hint
+              readonly
             />
             <v-text-field
               v-model="editedItem.name_th"
@@ -284,14 +289,6 @@ onMounted(() => {
               variant="outlined"
               class="mb-2"
             />
-            <v-text-field
-              v-model.number="editedItem.order"
-              label="ลำดับ"
-              type="number"
-              density="comfortable"
-              variant="outlined"
-              class="mb-2"
-            />
             <v-switch
               v-model="editedItem.active"
               :label="editedItem.active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'"
@@ -309,7 +306,6 @@ onMounted(() => {
       </v-card>
     </v-dialog>
 
-    <!-- Delete Dialog -->
     <v-dialog v-model="dialogDelete" max-width="400px">
       <v-card>
         <v-card-title>ยืนยันการลบ</v-card-title>

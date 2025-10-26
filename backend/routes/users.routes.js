@@ -9,6 +9,10 @@
 // - create/update/delete: ตัวอย่างนี้จำกัด admin (นักเรียนจะเห็นการควบคุมสิทธิ์ชัดเจน)
 
 router.get('/server', auth('admin','evaluator','evaluatee'), ctrl.listServer);
+// เพิ่ม 2 บรรทัดนี้หลัง router.get('/server', ...) 
+// และก่อน router.get('/', ...)
+router.get('/me', auth('admin','evaluator','evaluatee'), ctrl.getMe);
+router.get('/role/:role', auth('admin','evaluator','evaluatee'), ctrl.getByRole);
 router.get('/',       auth('admin','evaluator','evaluatee'), ctrl.list);
 router.get('/:id',    auth('admin','evaluator','evaluatee'), ctrl.get);
 

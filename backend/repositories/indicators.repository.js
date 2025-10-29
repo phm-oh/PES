@@ -1,11 +1,11 @@
 // backend/repositories/indicators.repository.js
 // Repository สำหรับจัดการตัวชี้วัด (indicators)
-// ✨ แก้ไขครั้งที่ 3: เพิ่ม JOIN topics ให้แสดง topic_name
+// ✨ แก้ไขครั้งที่ 4: เพิ่ม active field ใน update
 
 const db = require('../db/knex');
 const TABLE = 'indicators';
 
-//  ดึงทั้งหมด พร้อม JOIN topics
+// ดึงทั้งหมด พร้อม JOIN topics
 exports.findAll = async () => {
   return db(TABLE)
     .select(
@@ -22,7 +22,7 @@ exports.findById = async (id) => {
   return db(TABLE).where({ id }).first();
 };
 
-//  ดึงตาม topic_id พร้อม JOIN
+// ดึงตาม topic_id พร้อม JOIN
 exports.findByTopic = async (topicId) => {
   return db(TABLE)
     .select(
@@ -34,7 +34,7 @@ exports.findByTopic = async (topicId) => {
     .orderBy('indicators.id', 'asc');
 };
 
-//  ดึงตาม type พร้อม JOIN
+// ดึงตาม type พร้อม JOIN
 exports.findByType = async (type) => {
   return db(TABLE)
     .select(
@@ -54,6 +54,7 @@ exports.create = async (payload) => {
 };
 
 // แก้ไข
+//  เพิ่มส่วนนี้: เพิ่ม active field
 exports.update = async (id, payload) => {
   const data = {};
   if (payload.topic_id !== undefined) data.topic_id = payload.topic_id;
@@ -61,6 +62,7 @@ exports.update = async (id, payload) => {
   if (payload.name_th !== undefined) data.name_th = payload.name_th;
   if (payload.type !== undefined) data.type = payload.type;
   if (payload.weight !== undefined) data.weight = payload.weight;
+  if (payload.active !== undefined) data.active = payload.active; //  เพิ่มบรรทัดนี้
 
   await db(TABLE).where({ id }).update(data);
   return exports.findById(id);

@@ -1,7 +1,6 @@
 // backend/controllers/indicators.controller.js
 // Controller สำหรับจัดการตัวชี้วัด (indicators)
 
-
 const indicatorsRepo = require('../repositories/indicators.repository');
 
 // GET /api/indicators
@@ -9,12 +8,9 @@ exports.list = async (req, res, next) => {
   try {
     const items = await indicatorsRepo.findAll();
     console.log('📋 Indicators fetched:', items.length, 'items');
-    
-    
-    // ส่ง response ตาม format มาตรฐาน
     res.json({ success: true, items, total: items.length });
   } catch (e) {
-    console.error(' Error in indicators.list:', e);
+    console.error('❌ Error in indicators.list:', e);
     next(e);
   }
 };
@@ -51,11 +47,11 @@ exports.getByType = async (req, res, next) => {
 };
 
 // POST /api/indicators
+// ⭐ ส่วนเพิ่มเติม: รองรับ active field
 exports.create = async (req, res, next) => {
   try {
-    const { topic_id, code, name_th, type, weight } = req.body;
+    const { topic_id, code, name_th, type, weight, active } = req.body;
     
-    // Validation
     if (!topic_id) return res.status(400).json({ success: false, message: 'topic_id required' });
     if (!name_th) return res.status(400).json({ success: false, message: 'name_th required' });
     if (!code) return res.status(400).json({ success: false, message: 'code required' });
@@ -65,7 +61,8 @@ exports.create = async (req, res, next) => {
       code,
       name_th,
       type: type || 'score_1_4',
-      weight: weight || 1
+      weight: weight !== undefined ? weight : 1,
+      active: active !== undefined ? active : 1
     });
     
     console.log('✅ Indicator created:', created);
@@ -76,10 +73,12 @@ exports.create = async (req, res, next) => {
 };
 
 // PUT /api/indicators/:id
+// ⭐ ส่วนเพิ่มเติม: log การ update
 exports.update = async (req, res, next) => {
   try {
     const updated = await indicatorsRepo.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
+    console.log('✅ Indicator updated:', updated);
     res.json({ success: true, data: updated });
   } catch (e) {
     next(e);

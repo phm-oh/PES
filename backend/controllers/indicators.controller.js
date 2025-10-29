@@ -1,6 +1,6 @@
 // backend/controllers/indicators.controller.js
 // Controller สำหรับจัดการตัวชี้วัด (indicators)
-//   เพิ่ม debug log เพื่อตรวจสอบ response
+
 
 const indicatorsRepo = require('../repositories/indicators.repository');
 
@@ -8,9 +8,13 @@ const indicatorsRepo = require('../repositories/indicators.repository');
 exports.list = async (req, res, next) => {
   try {
     const items = await indicatorsRepo.findAll();
-    console.log('📋 Indicators fetched:', items.length, 'items'); // ✨ Debug log
+    console.log('📋 Indicators fetched:', items.length, 'items');
+    
+    
+    // ส่ง response ตาม format มาตรฐาน
     res.json({ success: true, items, total: items.length });
   } catch (e) {
+    console.error(' Error in indicators.list:', e);
     next(e);
   }
 };
@@ -51,7 +55,7 @@ exports.create = async (req, res, next) => {
   try {
     const { topic_id, code, name_th, type, weight } = req.body;
     
-    // ✨ Validation
+    // Validation
     if (!topic_id) return res.status(400).json({ success: false, message: 'topic_id required' });
     if (!name_th) return res.status(400).json({ success: false, message: 'name_th required' });
     if (!code) return res.status(400).json({ success: false, message: 'code required' });
@@ -64,16 +68,9 @@ exports.create = async (req, res, next) => {
       weight: weight || 1
     });
     
-    console.log('✅ Indicator created:', created); // ✨ Debug log
+    console.log('✅ Indicator created:', created);
     res.status(201).json({ success: true, data: created });
   } catch (e) {
-    // ✨ จัดการ UNIQUE constraint error
-    if (e.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ 
-        success: false, 
-        message: 'รหัสนี้มีอยู่แล้ว กรุณาใช้รหัสอื่น' 
-      });
-    }
     next(e);
   }
 };
@@ -85,13 +82,6 @@ exports.update = async (req, res, next) => {
     if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
     res.json({ success: true, data: updated });
   } catch (e) {
-    // ✨ จัดการ UNIQUE constraint error
-    if (e.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ 
-        success: false, 
-        message: 'รหัสนี้มีอยู่แล้ว กรุณาใช้รหัสอื่น' 
-      });
-    }
     next(e);
   }
 };

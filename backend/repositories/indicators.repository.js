@@ -1,11 +1,11 @@
 // backend/repositories/indicators.repository.js
 // Repository สำหรับจัดการตัวชี้วัด (indicators)
-// ✨ แก้ไขครั้งที่ 4: เพิ่ม active field ใน update
+// ✨ แก้ไขครั้งที่ 8: แสดงทุกรายการ (รวม active = 0) + JOIN topics
 
 const db = require('../db/knex');
 const TABLE = 'indicators';
 
-// ดึงทั้งหมด พร้อม JOIN topics
+// ดึงทั้งหมด พร้อม JOIN topics - แสดงทุกรายการไม่กรอง active
 exports.findAll = async () => {
   return db(TABLE)
     .select(
@@ -53,8 +53,7 @@ exports.create = async (payload) => {
   return exports.findById(id);
 };
 
-// แก้ไข
-//  เพิ่มส่วนนี้: เพิ่ม active field
+// แก้ไข - ✨ เพิ่ม active field
 exports.update = async (id, payload) => {
   const data = {};
   if (payload.topic_id !== undefined) data.topic_id = payload.topic_id;
@@ -62,7 +61,7 @@ exports.update = async (id, payload) => {
   if (payload.name_th !== undefined) data.name_th = payload.name_th;
   if (payload.type !== undefined) data.type = payload.type;
   if (payload.weight !== undefined) data.weight = payload.weight;
-  if (payload.active !== undefined) data.active = payload.active; //  เพิ่มบรรทัดนี้
+  if (payload.active !== undefined) data.active = payload.active;
 
   await db(TABLE).where({ id }).update(data);
   return exports.findById(id);

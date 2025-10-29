@@ -1,5 +1,5 @@
 <!-- frontend/pages/admin/indicators.vue -->
-<!-- ✨ แก้ไขครั้งที่ 2: generate code ตั้งแต่เปิด dialog + validate ก่อนส่ง -->
+<!--  แก้ไขครั้งที่ 3: เพิ่ม debug log + handle refresh ดีขึ้น -->
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
@@ -59,6 +59,7 @@ const formTitle = computed(() => {
 })
 
 // ============= METHODS =============
+//  แก้ไข: เพิ่ม debug log
 async function fetchItems() {
   loading.value = true
   errorMsg.value = ''
@@ -67,7 +68,10 @@ async function fetchItems() {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
     items.value = res.items || []
+    console.log('📋 Frontend received indicators:', items.value.length, 'items')
+    console.log('🔍 First item:', items.value[0]) // ✨ Debug: ดู structure
   } catch (e) {
+    console.error('❌ Fetch indicators error:', e)
     errorMsg.value = e.data?.message || e.message || 'Load failed'
   } finally {
     loading.value = false
@@ -106,6 +110,7 @@ function closeDialog() {
   }, 300)
 }
 
+// ✨ แก้ไข: เพิ่ม debug log และ error handling ดีขึ้น
 async function save() {
   errorMsg.value = ''
   successMsg.value = ''
@@ -132,6 +137,8 @@ async function save() {
     active: editedItem.value.active ? 1 : 0
   }
   
+  console.log('💾 Saving indicator:', payload) // ✨ Debug log
+  
   try {
     if (editedIndex.value > -1) {
       await $fetch(`${config.public.apiBase}/api/indicators/${editedItem.value.id}`, {
@@ -144,7 +151,7 @@ async function save() {
       })
       successMsg.value = 'แก้ไขสำเร็จ'
     } else {
-      await $fetch(`${config.public.apiBase}/api/indicators`, {
+      const result = await $fetch(`${config.public.apiBase}/api/indicators`, {
         method: 'POST',
         headers: { 
           Authorization: `Bearer ${auth.token}`,
@@ -152,11 +159,18 @@ async function save() {
         },
         body: payload
       })
+      console.log('✅ Created indicator:', result) // ✨ Debug log
       successMsg.value = 'เพิ่มสำเร็จ'
     }
     closeDialog()
-    await fetchItems()
+    
+    // ✨ เพิ่ม delay เล็กน้อยเพื่อให้ DB commit เสร็จ
+    setTimeout(async () => {
+      await fetchItems()
+    }, 200)
+    
   } catch (e) {
+    console.error('❌ Save error:', e) // ✨ Debug log
     errorMsg.value = e.data?.message || e.message || 'Save failed'
   }
 }
@@ -230,7 +244,7 @@ onMounted(() => {
 
         <template #item.active="{ item }">
           <v-chip size="small" :color="item.active ? 'success' : 'error'">
-            {{ item.active ? 'เปิดใช้งาน' : 'ปิดใช้งาน' }}
+            {{ item.active ? 'ใช้งาน' : 'ปิดใช้งาน' }}
           </v-chip>
         </template>
 
@@ -241,62 +255,71 @@ onMounted(() => {
       </v-data-table>
     </v-card>
 
+    <!-- Dialog สำหรับเพิ่ม/แก้ไข -->
     <v-dialog v-model="dialog" max-width="600px" persistent>
       <v-card>
-        <v-card-title>{{ formTitle }}</v-card-title>
+        <v-card-title class="text-h5 pa-4">{{ formTitle }}</v-card-title>
         <v-card-text>
-          <v-form>
-            <v-select
-              v-model="editedItem.topic_id"
-              :items="topics"
-              item-title="title_th"
-              item-value="id"
-              label="หัวข้อ *"
-              density="comfortable"
-              variant="outlined"
-              class="mb-2"
-            />
-            <v-text-field
-              v-model="editedItem.code"
-              label="รหัส *"
-              density="comfortable"
-              variant="outlined"
-              class="mb-2"
-              hint="ระบบสร้างให้อัตโนมัติ (แก้ได้)"
-              persistent-hint
-              readonly
-            />
-            <v-text-field
-              v-model="editedItem.name_th"
-              label="ชื่อตัวชี้วัด *"
-              density="comfortable"
-              variant="outlined"
-              class="mb-2"
-            />
-            <v-select
-              v-model="editedItem.type"
-              :items="typeOptions"
-              label="ประเภท *"
-              density="comfortable"
-              variant="outlined"
-              class="mb-2"
-            />
-            <v-text-field
-              v-model.number="editedItem.weight"
-              label="น้ำหนัก"
-              type="number"
-              density="comfortable"
-              variant="outlined"
-              class="mb-2"
-            />
-            <v-switch
-              v-model="editedItem.active"
-              :label="editedItem.active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'"
-              color="primary"
-              :true-value="1"
-              :false-value="0"
-            />
-          </v-form>
+          <v-container>
+            <v-row>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="editedItem.code"
+                  label="รหัส *"
+                  variant="outlined"
+                  density="compact"
+                  hint="จะถูกสร้างอัตโนมัติถ้าไม่ระบุ"
+                  persistent-hint
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-select
+                  v-model="editedItem.topic_id"
+                  :items="topics"
+                  item-title="title_th"
+                  item-value="id"
+                  label="หัวข้อ *"
+                  variant="outlined"
+                  density="compact"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="editedItem.name_th"
+                  label="ชื่อตัวชี้วัด *"
+                  variant="outlined"
+                  density="compact"
+                />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-select
+                  v-model="editedItem.type"
+                  :items="typeOptions"
+                  label="ประเภท"
+                  variant="outlined"
+                  density="compact"
+                />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  v-model.number="editedItem.weight"
+                  label="น้ำหนัก"
+                  type="number"
+                  variant="outlined"
+                  density="compact"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-checkbox
+                  v-model="editedItem.active"
+                  label="ใช้งาน"
+                  :true-value="1"
+                  :false-value="0"
+                  density="compact"
+                />
+              </v-col>
+            </v-row>
+          </v-container>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -306,11 +329,12 @@ onMounted(() => {
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="dialogDelete" max-width="400px">
+    <!-- Dialog สำหรับยืนยันการลบ -->
+    <v-dialog v-model="dialogDelete" max-width="500px">
       <v-card>
-        <v-card-title>ยืนยันการลบ</v-card-title>
+        <v-card-title class="text-h5 pa-4">ยืนยันการลบ?</v-card-title>
         <v-card-text>
-          คุณแน่ใจหรือไม่ที่จะลบ "{{ editedItem.name_th }}"?
+          คุณแน่ใจหรือไม่ว่าต้องการลบตัวชี้วัด "{{ editedItem.name_th }}"?
         </v-card-text>
         <v-card-actions>
           <v-spacer />

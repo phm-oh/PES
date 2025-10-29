@@ -1,26 +1,14 @@
 // backend/repositories/indicators.repository.js
 // Repository สำหรับจัดการตัวชี้วัด (indicators)
-// ⭐ แก้ไข: ระบุฟิลด์ชัดเจน ไม่ใช้ * เพื่อให้แน่ใจว่าได้ weight + active
 
 const db = require('../db/knex');
 const TABLE = 'indicators';
 
-// ดึงทั้งหมด พร้อม JOIN topics - แสดงทุกรายการไม่กรอง active
+// ดึงทั้งหมด พร้อม JOIN topics
 exports.findAll = async () => {
   return db(TABLE)
     .select(
-      'indicators.id',
-      'indicators.topic_id',
-      'indicators.code',
-      'indicators.name_th',
-      'indicators.description',
-      'indicators.type',
-      'indicators.weight',
-      'indicators.min_score',
-      'indicators.max_score',
-      'indicators.active',
-      'indicators.created_at',
-      'indicators.updated_at',
+      'indicators.*',
       'evaluation_topics.title_th as topic_name'
     )
     .leftJoin('evaluation_topics', 'indicators.topic_id', 'evaluation_topics.id')
@@ -37,18 +25,7 @@ exports.findById = async (id) => {
 exports.findByTopic = async (topicId) => {
   return db(TABLE)
     .select(
-      'indicators.id',
-      'indicators.topic_id',
-      'indicators.code',
-      'indicators.name_th',
-      'indicators.description',
-      'indicators.type',
-      'indicators.weight',
-      'indicators.min_score',
-      'indicators.max_score',
-      'indicators.active',
-      'indicators.created_at',
-      'indicators.updated_at',
+      'indicators.*',
       'evaluation_topics.title_th as topic_name'
     )
     .leftJoin('evaluation_topics', 'indicators.topic_id', 'evaluation_topics.id')
@@ -60,18 +37,7 @@ exports.findByTopic = async (topicId) => {
 exports.findByType = async (type) => {
   return db(TABLE)
     .select(
-      'indicators.id',
-      'indicators.topic_id',
-      'indicators.code',
-      'indicators.name_th',
-      'indicators.description',
-      'indicators.type',
-      'indicators.weight',
-      'indicators.min_score',
-      'indicators.max_score',
-      'indicators.active',
-      'indicators.created_at',
-      'indicators.updated_at',
+      'indicators.*',
       'evaluation_topics.title_th as topic_name'
     )
     .leftJoin('evaluation_topics', 'indicators.topic_id', 'evaluation_topics.id')
@@ -86,7 +52,7 @@ exports.create = async (payload) => {
   return exports.findById(id);
 };
 
-// แก้ไข - รองรับ active field
+// แก้ไข
 exports.update = async (id, payload) => {
   const data = {};
   if (payload.topic_id !== undefined) data.topic_id = payload.topic_id;

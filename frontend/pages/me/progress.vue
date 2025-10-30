@@ -42,6 +42,21 @@ const evaluatorProgress = computed(() => {
   return { completed, total, percent }
 })
 
+// ⚠️ ส่วนเพิ่มเติม: จัดกลุ่มผลประเมินตาม topic
+const resultsByTopic = computed(() => {
+  const grouped = {}
+  
+  results.value.forEach(r => {
+    const topicName = r.topic_name || 'อื่นๆ'
+    if (!grouped[topicName]) {
+      grouped[topicName] = []
+    }
+    grouped[topicName].push(r)
+  })
+  
+  return grouped
+})
+
 // ============= METHODS =============
 async function fetchPeriods() {
   try {
@@ -65,20 +80,21 @@ async function fetchProgress() {
   errorMsg.value = ''
   try {
     // ดึงผลประเมิน
-    const resultsRes = await $fetch(`${config.public.apiBase}/api/results/me/${selectedPeriod.value}`, {
+    const res = await $fetch(`${config.public.apiBase}/api/results/me/${selectedPeriod.value}`, {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
-    results.value = resultsRes.items || []
-
-    // ดึงข้อมูลกรรมการ
-    const assignRes = await $fetch(`${config.public.apiBase}/api/assignments`, {
-      params: { 
-        period_id: selectedPeriod.value,
-        evaluatee_id: auth.user.id
-      },
-      headers: { Authorization: `Bearer ${auth.token}` }
-    })
-    assignments.value = assignRes.items || []
+    
+    results.value = res.items || []
+    
+    // ⚠️ ส่วนเพิ่มเติม: ดึงรายชื่อกรรมการที่ได้รับมอบหมาย
+    try {
+      const assignRes = await $fetch(`${config.public.apiBase}/api/assignments/mine`, {
+        headers: { Authorization: `Bearer ${auth.token}` }
+      })
+      assignments.value = assignRes.items || []
+    } catch (e) {
+      console.error('Load assignments failed:', e)
+    }
   } catch (e) {
     errorMsg.value = e.data?.message || e.message || 'Load failed'
   } finally {
@@ -87,9 +103,21 @@ async function fetchProgress() {
 }
 
 function getProgressColor(percent) {
-  if (percent >= 100) return 'success'
+  if (percent >= 80) return 'success'
   if (percent >= 50) return 'warning'
   return 'error'
+}
+
+function getStatusColor(result) {
+  if (result.evaluator_score > 0) return 'success'
+  if (result.self_score > 0) return 'info'
+  return 'grey'
+}
+
+function getStatusText(result) {
+  if (result.evaluator_score > 0) return 'กรรมการประเมินแล้ว'
+  if (result.self_score > 0) return 'รอกรรมการประเมิน'
+  return 'ยังไม่ได้ประเมิน'
 }
 
 // ============= LIFECYCLE =============
@@ -102,14 +130,14 @@ onMounted(() => {
   <div class="pa-4">
     <v-card>
       <v-card-title class="d-flex align-center">
-        <v-icon left color="primary">mdi-chart-line</v-icon>
-        <span class="text-h5 ml-2">ติดตามความคืบหน้า</span>
+        <v-icon left color="primary">mdi-progress-clock</v-icon>
+        <span class="text-h5 ml-2">ความคืบหน้าการประเมิน</span>
       </v-card-title>
 
       <v-divider />
 
       <v-card-text>
-        <!-- Filter Period -->
+        <!-- เลือกรอบประเมิน -->
         <v-row class="mb-4">
           <v-col cols="12" md="6">
             <v-select
@@ -132,7 +160,7 @@ onMounted(() => {
           <v-progress-circular indeterminate color="primary" />
         </div>
 
-        <div v-else>
+        <template v-else>
           <!-- Progress Cards -->
           <v-row class="mb-4">
             <!-- ประเมินตนเอง -->
@@ -184,76 +212,44 @@ onMounted(() => {
             </v-col>
           </v-row>
 
-          <!-- กรรมการที่ได้รับมอบหมาย -->
-          <v-card class="mb-4" v-if="assignments.length > 0">
-            <v-card-title>
-              <v-icon left>mdi-account-group</v-icon>
-              กรรมการผู้ประเมิน
-            </v-card-title>
-            <v-card-text>
-              <v-list>
-                <v-list-item v-for="assign in assignments" :key="assign.id">
-                  <template #prepend>
-                    <v-avatar color="primary">
-                      <span class="text-white">{{ assign.evaluator_name?.charAt(0) || 'E' }}</span>
-                    </v-avatar>
-                  </template>
-                  <v-list-item-title>{{ assign.evaluator_name }}</v-list-item-title>
-                  <v-list-item-subtitle>มอบหมายเมื่อ: {{ new Date(assign.assigned_at).toLocaleDateString('th-TH') }}</v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </v-card-text>
-          </v-card>
+          <!-- รายละเอียดตาม Topic -->
+          <v-expansion-panels v-if="Object.keys(resultsByTopic).length > 0">
+            <v-expansion-panel v-for="(items, topicName) in resultsByTopic" :key="topicName">
+              <v-expansion-panel-title>
+                <div class="d-flex align-center">
+                  <v-icon left>mdi-folder-outline</v-icon>
+                  <strong>{{ topicName }}</strong>
+                  <v-spacer />
+                  <v-chip size="small" class="mr-2">
+                    {{ items.length }} รายการ
+                  </v-chip>
+                </div>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <v-list>
+                  <v-list-item v-for="result in items" :key="result.id">
+                    <v-list-item-title>{{ result.indicator_name }}</v-list-item-title>
+                    <v-list-item-subtitle>
+                      <v-chip :color="getStatusColor(result)" size="small" class="mr-2">
+                        {{ getStatusText(result) }}
+                      </v-chip>
+                      <span v-if="result.self_score > 0">
+                        คะแนนตนเอง: <strong>{{ result.self_score }}</strong>
+                      </span>
+                      <span v-if="result.evaluator_score > 0" class="ml-2">
+                        | คะแนนกรรมการ: <strong>{{ result.evaluator_score }}</strong>
+                      </span>
+                    </v-list-item-subtitle>
+                  </v-list-item>
+                </v-list>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
 
-          <!-- รายละเอียดตัวชี้วัด -->
-          <v-card>
-            <v-card-title>
-              <v-icon left>mdi-clipboard-list</v-icon>
-              รายละเอียดการประเมิน
-            </v-card-title>
-            <v-card-text>
-              <v-table>
-                <thead>
-                  <tr>
-                    <th>ตัวชี้วัด</th>
-                    <th class="text-center">คะแนนตนเอง</th>
-                    <th class="text-center">คะแนนกรรมการ</th>
-                    <th class="text-center">สถานะ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="result in results" :key="result.id">
-                    <td>{{ result.indicator_name || '-' }}</td>
-                    <td class="text-center">
-                      <v-chip size="small" :color="result.self_score > 0 ? 'primary' : 'grey'">
-                        {{ result.self_score || 0 }}
-                      </v-chip>
-                    </td>
-                    <td class="text-center">
-                      <v-chip size="small" :color="result.evaluator_score > 0 ? 'success' : 'grey'">
-                        {{ result.evaluator_score || 0 }}
-                      </v-chip>
-                    </td>
-                    <td class="text-center">
-                      <v-chip
-                        size="small"
-                        :color="result.evaluator_score > 0 ? 'success' : result.self_score > 0 ? 'warning' : 'grey'"
-                      >
-                        {{ result.evaluator_score > 0 ? 'เสร็จสิ้น' : result.self_score > 0 ? 'รอประเมิน' : 'ยังไม่เริ่ม' }}
-                      </v-chip>
-                    </td>
-                  </tr>
-                </tbody>
-              </v-table>
-
-              <!-- No Data -->
-              <div v-if="results.length === 0" class="text-center pa-8">
-                <v-icon size="64" color="grey">mdi-file-document-outline</v-icon>
-                <div class="text-subtitle-1 mt-2">ยังไม่มีข้อมูล</div>
-              </div>
-            </v-card-text>
-          </v-card>
-        </div>
+          <v-alert v-else type="warning" class="mt-4">
+            ยังไม่มีข้อมูลการประเมิน
+          </v-alert>
+        </template>
       </v-card-text>
     </v-card>
   </div>

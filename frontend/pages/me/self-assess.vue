@@ -16,6 +16,7 @@ const topics = ref([])
 const results = ref({}) // { indicator_id: { score, files: [] } }
 const loading = ref(false)
 const saving = ref(false)
+const initializing = ref(false) // ⚠️ ส่วนเพิ่มเติม
 const errorMsg = ref('')
 const successMsg = ref('')
 
@@ -28,10 +29,37 @@ async function fetchPeriods() {
     periods.value = res || []
     if (periods.value.length > 0) {
       selectedPeriod.value = periods.value[0].id
-      fetchIndicators()
+      await fetchIndicators()
     }
   } catch (e) {
     console.error('Load periods failed:', e)
+  }
+}
+
+// ⚠️ ส่วนเพิ่มเติม: เรียก API init-for-me ถ้ายังไม่มี results
+async function initMyResults() {
+  if (!selectedPeriod.value) return
+  
+  initializing.value = true
+  try {
+    const res = await $fetch(`${config.public.apiBase}/api/results/init-for-me`, {
+      method: 'POST',
+      headers: { 
+        Authorization: `Bearer ${auth.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: { period_id: selectedPeriod.value }
+    })
+    
+    if (res.success && res.data.created > 0) {
+      console.log(`Created ${res.data.created} evaluation records`)
+      // โหลดผลประเมินใหม่
+      await fetchMyResults()
+    }
+  } catch (e) {
+    console.error('Init results failed:', e)
+  } finally {
+    initializing.value = false
   }
 }
 
@@ -62,6 +90,11 @@ async function fetchIndicators() {
 
     // โหลดผลประเมินเดิม (ถ้ามี)
     await fetchMyResults()
+    
+    // ⚠️ ส่วนเพิ่มเติม: ถ้าไม่มี results ให้สร้างใหม่
+    if (Object.keys(results.value).length === 0) {
+      await initMyResults()
+    }
   } catch (e) {
     errorMsg.value = e.data?.message || e.message || 'Load failed'
   } finally {
@@ -80,6 +113,7 @@ async function fetchMyResults() {
     results.value = items.reduce((acc, item) => {
       acc[item.indicator_id] = {
         score: item.self_score || 0,
+        note: item.self_note || '',
         files: []
       }
       return acc
@@ -105,68 +139,14 @@ async function handleFileUpload(indicatorId, event) {
     
     // เก็บ URL ไฟล์
     if (!results.value[indicatorId]) {
-      results.value[indicatorId] = { score: 0, files: [] }
+      results.value[indicatorId] = { score: 0, note: '', files: [] }
     }
     results.value[indicatorId].files.push(res.url)
-    successMsg.value = 'อัปโหลดสำเร็จ'
+    
+    console.log('File uploaded:', res.url)
   } catch (e) {
-    errorMsg.value = e.data?.message || e.message || 'Upload failed'
-  }
-}
-
-function removeFile(indicatorId, fileIndex) {
-  if (results.value[indicatorId]) {
-    results.value[indicatorId].files.splice(fileIndex, 1)
-  }
-}
-
-async function saveDraft() {
-  await saveResults('draft')
-}
-
-async function submitResults() {
-  // ตรวจสอบว่ากรอกครบทุก indicator หรือไม่
-  const allIndicators = topics.value.flatMap(t => t.indicators)
-  const missing = allIndicators.filter(ind => {
-    const result = results.value[ind.id]
-    return !result || result.score === 0
-  })
-
-  if (missing.length > 0) {
-    errorMsg.value = `กรุณากรอกคะแนนให้ครบ (ขาด ${missing.length} รายการ)`
-    return
-  }
-
-  await saveResults('submitted')
-}
-
-async function saveResults(status = 'draft') {
-  errorMsg.value = ''
-  successMsg.value = ''
-  saving.value = true
-
-  try {
-    // แปลง results เป็น array
-    const items = Object.entries(results.value).map(([indicator_id, data]) => ({
-      indicator_id: Number(indicator_id),
-      period_id: selectedPeriod.value,
-      score: data.score || 0
-    }))
-
-    await $fetch(`${config.public.apiBase}/api/results/self/bulk`, {
-      method: 'POST',
-      headers: { 
-        Authorization: `Bearer ${auth.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: { items }
-    })
-
-    successMsg.value = status === 'draft' ? 'บันทึกแบบร่างสำเร็จ' : 'ส่งการประเมินสำเร็จ'
-  } catch (e) {
-    errorMsg.value = e.data?.message || e.message || 'Save failed'
-  } finally {
-    saving.value = false
+    console.error('Upload failed:', e)
+    errorMsg.value = 'Upload failed'
   }
 }
 
@@ -176,9 +156,54 @@ function getScore(indicatorId) {
 
 function setScore(indicatorId, score) {
   if (!results.value[indicatorId]) {
-    results.value[indicatorId] = { score: 0, files: [] }
+    results.value[indicatorId] = { score: 0, note: '', files: [] }
   }
   results.value[indicatorId].score = score
+}
+
+function getNote(indicatorId) {
+  return results.value[indicatorId]?.note || ''
+}
+
+function setNote(indicatorId, note) {
+  if (!results.value[indicatorId]) {
+    results.value[indicatorId] = { score: 0, note: '', files: [] }
+  }
+  results.value[indicatorId].note = note
+}
+
+async function saveResults() {
+  errorMsg.value = ''
+  successMsg.value = ''
+  saving.value = true
+
+  try {
+    // เตรียมข้อมูล
+    const items = Object.entries(results.value).map(([indicator_id, data]) => ({
+      indicator_id: Number(indicator_id),
+      score: data.score || 0
+    }))
+
+    // บันทึก
+    await $fetch(`${config.public.apiBase}/api/results/self/bulk`, {
+      method: 'POST',
+      headers: { 
+        Authorization: `Bearer ${auth.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: {
+        period_id: selectedPeriod.value,
+        items
+      }
+    })
+
+    successMsg.value = 'บันทึกสำเร็จ'
+    setTimeout(() => { successMsg.value = '' }, 3000)
+  } catch (e) {
+    errorMsg.value = e.data?.message || e.message || 'Save failed'
+  } finally {
+    saving.value = false
+  }
 }
 
 // ============= LIFECYCLE =============
@@ -191,14 +216,14 @@ onMounted(() => {
   <div class="pa-4">
     <v-card>
       <v-card-title class="d-flex align-center">
-        <v-icon left color="primary">mdi-clipboard-edit</v-icon>
+        <v-icon left color="primary">mdi-star-check-outline</v-icon>
         <span class="text-h5 ml-2">ประเมินตนเอง</span>
       </v-card-title>
 
       <v-divider />
 
       <v-card-text>
-        <!-- Filter Period -->
+        <!-- เลือกรอบประเมิน -->
         <v-row class="mb-4">
           <v-col cols="12" md="6">
             <v-select
@@ -219,13 +244,19 @@ onMounted(() => {
           {{ successMsg }}
         </v-alert>
 
+        <!-- ⚠️ ส่วนเพิ่มเติม: แสดงสถานะ initializing -->
+        <v-alert v-if="initializing" type="info" class="mb-4">
+          <v-progress-circular indeterminate size="20" class="mr-2" />
+          กำลังสร้างรายการประเมิน...
+        </v-alert>
+
         <!-- Loading -->
         <div v-if="loading" class="text-center pa-8">
           <v-progress-circular indeterminate color="primary" />
         </div>
 
         <!-- Indicators by Topic -->
-        <v-expansion-panels v-else>
+        <v-expansion-panels v-else-if="topics.length > 0">
           <v-expansion-panel v-for="topic in topics" :key="topic.id">
             <v-expansion-panel-title>
               <div class="d-flex align-center">
@@ -260,78 +291,54 @@ onMounted(() => {
                       :color="getScore(indicator.id) > 0 ? 'primary' : 'grey'"
                       class="flex-grow-1"
                     />
-                    <v-chip class="ml-4" color="primary">
+                    <v-chip class="ml-4" :color="getScore(indicator.id) > 0 ? 'primary' : 'grey'">
                       {{ getScore(indicator.id) }}
                     </v-chip>
                   </div>
 
-                  <!-- อัปโหลดหลักฐาน -->
-                  <div class="mb-2">
-                    <v-btn
-                      size="small"
-                      color="info"
-                      variant="outlined"
-                      @click="$refs[`file_${indicator.id}`][0].click()"
-                    >
-                      <v-icon left>mdi-upload</v-icon>
-                      อัปโหลดหลักฐาน
-                    </v-btn>
-                    <input
-                      :ref="`file_${indicator.id}`"
-                      type="file"
-                      hidden
-                      @change="handleFileUpload(indicator.id, $event)"
-                    />
-                  </div>
+                  <!-- หมายเหตุ -->
+                  <v-textarea
+                    :model-value="getNote(indicator.id)"
+                    @update:model-value="setNote(indicator.id, $event)"
+                    label="หมายเหตุ (ถ้ามี)"
+                    rows="2"
+                    variant="outlined"
+                    density="compact"
+                    class="mb-3"
+                  />
 
-                  <!-- แสดงไฟล์ที่อัปโหลด -->
-                  <v-chip
-                    v-for="(file, idx) in results[indicator.id]?.files || []"
-                    :key="idx"
-                    size="small"
-                    closable
-                    @click:close="removeFile(indicator.id, idx)"
-                    class="mr-2 mb-2"
-                  >
-                    {{ file.split('/').pop() }}
-                  </v-chip>
-
-                  <v-divider class="mt-4" />
+                  <!-- อัปโหลดไฟล์ -->
+                  <v-file-input
+                    label="อัปโหลดหลักฐาน"
+                    prepend-icon="mdi-paperclip"
+                    variant="outlined"
+                    density="compact"
+                    @change="handleFileUpload(indicator.id, $event)"
+                  />
                 </v-list-item>
               </v-list>
             </v-expansion-panel-text>
           </v-expansion-panel>
         </v-expansion-panels>
 
-        <!-- No Data -->
-        <div v-if="!loading && topics.length === 0" class="text-center pa-8">
-          <v-icon size="64" color="grey">mdi-file-document-outline</v-icon>
-          <div class="text-subtitle-1 mt-2">ไม่มีตัวชี้วัด</div>
-        </div>
+        <!-- ⚠️ ส่วนเพิ่มเติม: แสดงเมื่อไม่มีข้อมูล -->
+        <v-alert v-else type="warning" class="mt-4">
+          ไม่พบรายการประเมิน กรุณาเลือกรอบการประเมินที่เปิดใช้งาน
+        </v-alert>
       </v-card-text>
 
-      <!-- Actions -->
+      <v-divider />
+
       <v-card-actions class="pa-4">
         <v-spacer />
         <v-btn
-          color="grey"
-          variant="outlined"
-          @click="saveDraft"
+          color="primary"
           :loading="saving"
-          :disabled="topics.length === 0"
+          :disabled="loading || initializing || topics.length === 0"
+          @click="saveResults"
         >
           <v-icon left>mdi-content-save</v-icon>
-          บันทึกแบบร่าง
-        </v-btn>
-        <v-btn
-          color="primary"
-          variant="elevated"
-          @click="submitResults"
-          :loading="saving"
-          :disabled="topics.length === 0"
-        >
-          <v-icon left>mdi-send</v-icon>
-          ส่งการประเมิน
+          บันทึก
         </v-btn>
       </v-card-actions>
     </v-card>

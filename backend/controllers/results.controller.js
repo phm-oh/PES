@@ -263,3 +263,53 @@ exports.getMyProgress = async (req, res, next) => {
     next(e);
   }
 };
+
+// backend/controllers/results.controller.js
+// ============= ⚠️ ส่วนเพิ่มเติม: Auto-Create Results (ใช้ Repository) =============
+
+
+
+// POST /api/results/init-for-period
+// สร้าง evaluation_results ให้ evaluatee ทุกคนในรอบประเมินที่กำหนด
+exports.initResultsForPeriod = async (req, res, next) => {
+  try {
+    const { period_id } = req.body;
+    
+    if (!period_id) {
+      return res.status(400).json({ success: false, message: 'period_id required' });
+    }
+
+    const result = await repo.initResultsForPeriod(period_id);
+
+    res.json({ 
+      success: true, 
+      message: `Created ${result.created} evaluation records`,
+      data: result
+    });
+  } catch (e) {
+    next(e);
+  }
+};
+
+// POST /api/results/init-for-me
+// สร้าง evaluation_results ให้ตัวเองในรอบประเมินที่ active
+exports.initResultsForMe = async (req, res, next) => {
+  try {
+    const evaluateeId = req.user.id;
+    const { period_id } = req.body;
+
+    if (!period_id) {
+      return res.status(400).json({ success: false, message: 'period_id required' });
+    }
+
+    const result = await repo.initResultsForEvaluatee(evaluateeId, period_id);
+
+    res.json({
+      success: true,
+      message: `Created ${result.created} records`,
+      data: result
+    });
+  } catch (e) {
+    next(e);
+  }
+};

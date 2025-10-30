@@ -17,7 +17,7 @@ const MAP = {
       label: 'MAIN',
       items: [
         { label: 'Dashboard', to: '/', icon: 'mdi-view-dashboard-outline' },
-        { label: 'Users', to: '/users', icon: 'mdi-account-multiple-outline' },
+        { label: 'Users', to: '/users', icon: 'mdi-account-multiple-outline' }, // ✅ เฉพาะ admin
       ]
     },
     {
@@ -39,6 +39,7 @@ const MAP = {
       label: 'MAIN',
       items: [
         { label: 'Dashboard', to: '/', icon: 'mdi-view-dashboard-outline' },
+        // ❌ ลบ Users ออก - ไม่ให้ evaluator เห็น
       ]
     },
     {
@@ -57,6 +58,7 @@ const MAP = {
       label: 'MAIN',
       items: [
         { label: 'Dashboard', to: '/', icon: 'mdi-view-dashboard-outline' },
+        // ❌ ลบ Users ออก - ไม่ให้ evaluatee เห็น
       ]
     },
     {

@@ -1,8 +1,12 @@
 // backend/repositories/assignments.repository.js
-// ✨ แก้ไข: เพิ่ม JOIN users + periods ให้แสดงชื่อ
+// Repository สำหรับจัดการ assignments (การมอบหมายงานประเมิน)
 
 const db = require('../db/knex');
 const TABLE = 'assignments';
+
+// ============================================================
+// ฟังก์ชันเดิม - ตรวจสอบสิทธิ์
+// ============================================================
 
 // ยืนยันว่า evaluatee อยู่ในงวดนั้น (ไม่ผูก evaluator)
 exports.hasEvaluateeInPeriod = async ({ period_id, evaluatee_id }) => {
@@ -19,11 +23,10 @@ exports.hasPairInPeriod = async ({ period_id, evaluator_id, evaluatee_id }) => {
 };
 
 // ============================================================
-// ✅ FUNCTIONS ใหม่ (CRUD + เพิ่มเติม)
+// ฟังก์ชัน CRUD พื้นฐาน
 // ============================================================
 
 // ดึงทั้งหมด พร้อม JOIN
-// ✨ แก้ไข: เพิ่ม JOIN users + periods
 exports.findAll = async () => {
   return db(TABLE)
     .select(
@@ -44,7 +47,6 @@ exports.findById = async (id) => {
 };
 
 // ดึงงานที่กรรมการได้รับมอบหมาย พร้อม JOIN
-// ✨ แก้ไข: เพิ่ม JOIN
 exports.findByEvaluator = async (evaluatorId) => {
   return db(TABLE)
     .select(
@@ -58,8 +60,36 @@ exports.findByEvaluator = async (evaluatorId) => {
     .orderBy('assignments.created_at', 'desc');
 };
 
+// ============================================================
+// ⭐⭐⭐ ฟังก์ชันใหม่ - สำหรับ evaluatee ⭐⭐⭐
+// ============================================================
+
+// ดึงงานของผู้ถูกประเมิน (evaluatee)
+// ใช้สำหรับให้ evaluatee ดูว่าถูกใครประเมินบ้าง
+exports.findByEvaluatee = async (evaluateeId, periodId = null) => {
+  let query = db(TABLE)
+    .select(
+      'assignments.*',
+      'evaluator.name_th as evaluator_name',
+      'periods.name_th as period_name',
+      'periods.start_date',
+      'periods.end_date',
+      'periods.is_active'
+    )
+    .leftJoin('users as evaluator', 'assignments.evaluator_id', 'evaluator.id')
+    .leftJoin('evaluation_periods as periods', 'assignments.period_id', 'periods.id')
+    .where('assignments.evaluatee_id', evaluateeId);
+
+  if (periodId) query = query.andWhere('assignments.period_id', periodId);
+
+  return query.orderBy('assignments.created_at', 'desc');
+};
+
+// ============================================================
+// ฟังก์ชันอื่นๆ
+// ============================================================
+
 // ดึงตาม period พร้อม JOIN
-// ✨ แก้ไข: เพิ่ม JOIN
 exports.findByPeriod = async (periodId) => {
   return db(TABLE)
     .select(
@@ -75,7 +105,6 @@ exports.findByPeriod = async (periodId) => {
 
 // สร้างใหม่
 exports.create = async (payload) => {
-  // ตรวจสอบซ้ำด้วย hasPairInPeriod (ใช้ฟังก์ชันเดิม)
   const exists = await exports.hasPairInPeriod({
     period_id: payload.period_id,
     evaluator_id: payload.evaluator_id,
@@ -89,7 +118,6 @@ exports.create = async (payload) => {
 
 // สร้างหลายรายการ
 exports.createBulk = async (items) => {
-  // ตรวจสอบซ้ำทั้งหมด
   for (const item of items) {
     const exists = await exports.hasPairInPeriod({
       period_id: item.period_id,

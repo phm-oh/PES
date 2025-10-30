@@ -1,14 +1,36 @@
-// routes/assignments.routes.js
+// backend/routes/assignments.routes.js
+// Routes สำหรับจัดการ assignments (การมอบหมายงานประเมิน)
+// ✨ แก้ไข: เพิ่ม route GET /mine สำหรับดึงงานของตัวเอง
+
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/assignments.controller');
-const requireAuth = require('../middlewares/requireAuth');
+const auth = require('../middlewares/auth');
 
-router.get('/mine', requireAuth, ctrl.getMine);
-router.post('/bulk', requireAuth, ctrl.createBulk);
-router.get('/', requireAuth, ctrl.list);
-router.get('/:id', requireAuth, ctrl.get);
-router.post('/', requireAuth, ctrl.create);
-router.delete('/:id', requireAuth, ctrl.remove);
+// ทุก route ต้อง login
+router.use(auth());
+
+
+
+// ============================================================
+// ✨ ส่วนเพิ่มเติม: GET /api/assignments/mine
+// ต้องอยู่ก่อน GET /:id เพื่อไม่ให้ "mine" ถูกจับเป็น id
+// ============================================================
+router.get('/mine', ctrl.getMine);
+
+// GET /api/assignments/:id - ดึงรายการเดียว
+router.get('/:id', ctrl.get);
+
+// GET /api/assignments - ดึงทั้งหมด (admin only)
+router.get('/', ctrl.list);
+
+// POST /api/assignments/bulk - สร้างหลายรายการ (admin only)
+router.post('/bulk', ctrl.createBulk);
+
+// POST /api/assignments - สร้างใหม่ (admin only)
+router.post('/', ctrl.create);
+
+// DELETE /api/assignments/:id - ลบ (admin only)
+router.delete('/:id', ctrl.remove);
 
 module.exports = router;

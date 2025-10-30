@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const attRepo = require('../repositories/attachments');
-const asgRepo = require('../repositories/assignments');
+const asgRepo = require('../repositories/assignments.repository');
 const mapRepo = require('../repositories/indicatorEvidence');
 const db = require('../db/knex');
 

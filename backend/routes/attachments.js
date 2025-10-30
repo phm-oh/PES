@@ -4,7 +4,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db/knex");
-const asgRepo = require("../repositories/assignments");
+const asgRepo = require("../repositories/assignments.repository");
 const authz = require("../middlewares/auth");
 const upload = require("../middlewares/upload");
 

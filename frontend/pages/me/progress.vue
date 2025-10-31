@@ -60,7 +60,7 @@ const resultsByTopic = computed(() => {
 // ============= METHODS =============
 async function fetchPeriods() {
   try {
-    const res = await $fetch(`${config.public.apiBase}/api/attachments/periods/active`, {
+    const res = await $fetch(`${config.public.apiBase}/api/periods/active`, {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
     periods.value = res || []

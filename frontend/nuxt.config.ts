@@ -33,23 +33,30 @@
 // })
 
 // nuxt.config.ts
+import { defineNuxtConfig } from 'nuxt/config'
 import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
 
 export default defineNuxtConfig({
    // ✅ ตั้งค่า compatibilityDate ตามที่ Nuxt เตือน
+
+  devServer: {
+    host: '0.0.0.0',
+    port: 3000
+  },
+
  nitro: {
     compatibilityDate: '2025-10-12', // 🔥 วันที่ตามที่ Nuxt แนะนำใน warning
   },
 
   modules: ['@pinia/nuxt'],
-   pinia: {
-    autoImports: ['defineStore', 'storeToRefs']
-  },
+  //  pinia: {
+  //   autoImports: ['defineStore', 'storeToRefs']
+  // },
   devtools: { enabled: false },
  runtimeConfig: {
     public: {
       // apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:7000'
-       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:7000'
+       apiBase:  'http://localhost:7000'
     }
   },
   // ✅ ย้าย PostCSS มาตั้งค่าที่นี่

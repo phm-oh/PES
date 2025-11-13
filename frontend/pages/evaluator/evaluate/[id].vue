@@ -221,8 +221,14 @@ onMounted(() => {
           <v-progress-circular indeterminate color="primary" />
         </div>
 
+        <!-- No Data Message -->
+        <v-alert v-else-if="!loading && topics.length === 0" type="warning" class="mb-4">
+          <div class="text-h6">ไม่พบหัวข้อการประเมิน</div>
+          <div class="mt-2">กรุณาติดต่อ Admin เพื่อสร้าง Topics และ Indicators ก่อน</div>
+        </v-alert>
+
         <!-- Indicators by Topic -->
-        <v-expansion-panels v-else class="mb-4">
+        <v-expansion-panels v-else-if="topics.length > 0" class="mb-4">
           <v-expansion-panel v-for="topic in topics" :key="topic.id">
             <v-expansion-panel-title>
               <div class="d-flex align-center">
@@ -319,10 +325,10 @@ onMounted(() => {
           variant="elevated"
           @click="saveEvaluation"
           :loading="saving"
-          :disabled="topics.length === 0"
+          :disabled="loading || topics.length === 0"
         >
           <v-icon left>mdi-content-save</v-icon>
-          บันทึกการประเมิน
+          {{ topics.length === 0 ? 'ไม่มีข้อมูลให้บันทึก' : 'บันทึกการประเมิน' }}
         </v-btn>
       </v-card-actions>
     </v-card>

@@ -255,6 +255,12 @@ onMounted(() => {
           <v-progress-circular indeterminate color="primary" />
         </div>
 
+        <!-- No Data Message -->
+        <v-alert v-else-if="!loading && !initializing && topics.length === 0" type="warning" class="mt-4">
+          <div class="text-h6">ไม่พบรายการประเมิน</div>
+          <div class="mt-2">กรุณาติดต่อ Admin เพื่อสร้าง Topics และ Indicators หรือรอการมอบหมาย</div>
+        </v-alert>
+
         <!-- Indicators by Topic -->
         <v-expansion-panels v-else-if="topics.length > 0">
           <v-expansion-panel v-for="topic in topics" :key="topic.id">
@@ -320,11 +326,6 @@ onMounted(() => {
             </v-expansion-panel-text>
           </v-expansion-panel>
         </v-expansion-panels>
-
-        <!-- ⚠️ ส่วนเพิ่มเติม: แสดงเมื่อไม่มีข้อมูล -->
-        <v-alert v-else type="warning" class="mt-4">
-          ไม่พบรายการประเมิน กรุณาเลือกรอบการประเมินที่เปิดใช้งาน
-        </v-alert>
       </v-card-text>
 
       <v-divider />

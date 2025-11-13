@@ -14,7 +14,7 @@ const user = ref(null)
 const loading = ref(false)
 const editing = ref(false)
 const form = ref({
-  name: '',
+  name_th: '',
   email: '',
   phone: '',
   position: ''
@@ -32,7 +32,7 @@ async function fetchProfile() {
     })
     user.value = res.data
     form.value = {
-      name: user.value.name || '',
+      name_th: user.value.name_th || '',
       email: user.value.email || '',
       phone: user.value.phone || '',
       position: user.value.position || ''
@@ -60,9 +60,8 @@ async function saveProfile() {
     successMsg.value = 'บันทึกสำเร็จ'
     editing.value = false
     await fetchProfile()
-    
-    // อัปเดต auth store
-    auth.user.name = form.value.name
+
+    auth.user.name_th = form.value.name_th
   } catch (e) {
     errorMsg.value = e.data?.message || e.message || 'Save failed'
   } finally {
@@ -73,7 +72,7 @@ async function saveProfile() {
 function cancelEdit() {
   editing.value = false
   form.value = {
-    name: user.value.name || '',
+    name_th: user.value.name_th || '',
     email: user.value.email || '',
     phone: user.value.phone || '',
     position: user.value.position || ''
@@ -119,7 +118,7 @@ onMounted(() => {
               </span>
             </v-avatar>
             <div class="mt-4">
-              <div class="text-h6">{{ user.name }}</div>
+              <div class="text-h6">{{ user.name_th }}</div>
               <v-chip size="small" :color="getRoleColor(user.role)" class="mt-2">
                 {{ getRoleText(user.role) }}
               </v-chip>
@@ -143,7 +142,7 @@ onMounted(() => {
 
             <v-form v-if="editing">
               <v-text-field
-                v-model="form.name"
+                v-model="form.name_th"
                 label="ชื่อ-นามสกุล *"
                 density="comfortable"
                 variant="outlined"

@@ -13,6 +13,7 @@ const router = useRouter()
 const items = ref([])
 const topics = ref([])
 const loading = ref(false)
+const saving = ref(false)
 const dialog = ref(false)
 const dialogDelete = ref(false)
 const editedIndex = ref(-1)
@@ -57,24 +58,13 @@ async function fetchItems() {
     const res = await $fetch(`${config.public.apiBase}/api/indicators`, {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
-    
-    console.log('🔍 RAW RESPONSE:', res)
-    
+
     let dataArray = Array.isArray(res) ? res : (res?.items || [])
-    
-    console.log('📊 DATA ARRAY:', dataArray)
-    console.log('📊 FIRST ITEM:', dataArray[0])
-    console.log('📊 FIRST ITEM KEYS:', dataArray[0] ? Object.keys(dataArray[0]) : 'NO DATA')
-    console.log('⚖️  FIRST WEIGHT:', dataArray[0]?.weight)
-    console.log('🟢 FIRST ACTIVE:', dataArray[0]?.active)
-    
+
     items.value = []
     await nextTick()
     items.value = dataArray
-    
-    console.log('✅ Loaded:', items.value.length, 'items')
   } catch (e) {
-    console.error('❌ Fetch error:', e)
     errorMsg.value = e.data?.message || e.message || 'Load failed'
     if (e.status === 401 || e.statusCode === 401) {
       auth.logout()
@@ -93,16 +83,15 @@ async function fetchTopics() {
     })
     topics.value = Array.isArray(res) ? res : (res?.items || [])
   } catch (e) {
-    console.error('❌ Topics load failed:', e)
+    // Topics load failed
   }
 }
 
 function editItem(item) {
-  console.log('✏️ Editing item:', item)
   editedIndex.value = items.value.indexOf(item)
-  editedItem.value = { 
-    ...item, 
-    active: isActive(item.active) ? 1 : 0 
+  editedItem.value = {
+    ...item,
+    active: isActive(item.active) ? 1 : 0
   }
   dialog.value = true
 }
@@ -113,36 +102,21 @@ function deleteItem(item) {
   dialogDelete.value = true
 }
 
-function close() {
-  dialog.value = false
-  setTimeout(() => {
-    editedItem.value = { ...defaultItem }
-    editedIndex.value = -1
-  }, 300)
-}
-
-function closeDelete() {
-  dialogDelete.value = false
-  setTimeout(() => {
-    editedItem.value = { ...defaultItem }
-    editedIndex.value = -1
-  }, 300)
-}
 
 async function save() {
   if (!auth.token) return
   errorMsg.value = ''
   successMsg.value = ''
-  
-  if (!editedItem.value.name_th) { 
+
+  if (!editedItem.value.name_th) {
     errorMsg.value = 'กรุณากรอกชื่อตัวชี้วัด'
-    return 
+    return
   }
-  if (!editedItem.value.topic_id) { 
+  if (!editedItem.value.topic_id) {
     errorMsg.value = 'กรุณาเลือกหัวข้อ'
-    return 
+    return
   }
-  
+
   const payload = {
     topic_id: editedItem.value.topic_id,
     code: editedItem.value.code || `IND-${Date.now().toString().slice(-6)}`,
@@ -151,58 +125,49 @@ async function save() {
     weight: editedItem.value.weight || 1,
     active: editedItem.value.active ? 1 : 0
   }
-  
-  console.log('💾 Saving:', payload)
-  
+
+  saving.value = true
   try {
-    if (editedIndex.value > -1) {
-      const res = await $fetch(`${config.public.apiBase}/api/indicators/${editedItem.value.id}`, {
-        method: 'PUT',
-        headers: { 
-          Authorization: `Bearer ${auth.token}`, 
-          'Content-Type': 'application/json' 
-        },
-        body: payload
-      })
-      console.log('✅ Updated response:', res)
-      successMsg.value = 'แก้ไขสำเร็จ'
-    } else {
-      const res = await $fetch(`${config.public.apiBase}/api/indicators`, {
-        method: 'POST',
-        headers: { 
-          Authorization: `Bearer ${auth.token}`, 
-          'Content-Type': 'application/json' 
-        },
-        body: payload
-      })
-      console.log('✅ Created response:', res)
-      successMsg.value = 'เพิ่มสำเร็จ'
-    }
-    close()
+    const url = editedIndex.value > -1
+      ? `${config.public.apiBase}/api/indicators/${editedItem.value.id}`
+      : `${config.public.apiBase}/api/indicators`
+    const method = editedIndex.value > -1 ? 'PUT' : 'POST'
+
+    await $fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: payload
+    })
+
+    successMsg.value = editedIndex.value > -1 ? 'แก้ไขสำเร็จ' : 'เพิ่มสำเร็จ'
+    dialog.value = false
     await fetchItems()
   } catch (e) {
-    console.error('❌ Save error:', e)
     errorMsg.value = e.data?.message || e.message || 'Save failed'
+  } finally {
+    saving.value = false
   }
 }
 
 async function deleteItemConfirm() {
   if (!auth.token) return
+  loading.value = true
   errorMsg.value = ''
-  successMsg.value = ''
   try {
-    const res = await $fetch(`${config.public.apiBase}/api/indicators/${editedItem.value.id}`, {
+    await $fetch(`${config.public.apiBase}/api/indicators/${editedItem.value.id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${auth.token}` }
     })
-    if (res.success) {
-      successMsg.value = 'ลบสำเร็จ'
-    }
-    closeDelete()
+    successMsg.value = 'ลบสำเร็จ'
+    dialogDelete.value = false
     await fetchItems()
   } catch (e) {
     errorMsg.value = e.data?.message || e.message || 'Delete failed'
-    closeDelete()
+  } finally {
+    loading.value = false
   }
 }
 
@@ -279,82 +244,62 @@ onMounted(async () => {
       </v-data-table>
     </v-card>
 
-    <v-dialog v-model="dialog" max-width="600px">
-      <v-card>
-        <v-card-title>{{ formTitle }}</v-card-title>
-        <v-card-text>
-          <v-row>
-            <v-col cols="12">
-              <v-select
-                v-model="editedItem.topic_id"
-                :items="topics"
-                item-title="title_th"
-                item-value="id"
-                label="หัวข้อ"
-                required
-              />
-            </v-col>
-            <v-col cols="12" sm="6">
-              <v-text-field 
-                v-model="editedItem.code" 
-                label="รหัส" 
-                required 
-              />
-            </v-col>
-            <v-col cols="12" sm="6">
-              <v-text-field 
-                v-model.number="editedItem.weight" 
-                label="น้ำหนัก" 
-                type="number" 
-                required 
-              />
-            </v-col>
-            <v-col cols="12">
-              <v-text-field 
-                v-model="editedItem.name_th" 
-                label="ชื่อตัวชี้วัด" 
-                required 
-              />
-            </v-col>
-            <v-col cols="12">
-              <v-select
-                v-model="editedItem.type"
-                :items="typeOptions"
-                label="ประเภท"
-                required
-              />
-            </v-col>
-            <v-col cols="12">
-              <v-switch
-                v-model="editedItem.active"
-                :label="editedItem.active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'"
-                :true-value="1"
-                :false-value="0"
-                color="success"
-              />
-            </v-col>
-          </v-row>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn text @click="close">ยกเลิก</v-btn>
-          <v-btn color="primary" @click="save">บันทึก</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <CrudDialog v-model="dialog" :title="formTitle" :error="errorMsg" :saving="saving" @save="save" @update:error="errorMsg = $event">
+      <template #form>
+        <v-row>
+          <v-col cols="12">
+            <v-select
+              v-model="editedItem.topic_id"
+              :items="topics"
+              item-title="title_th"
+              item-value="id"
+              label="หัวข้อ"
+              required
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              v-model="editedItem.code"
+              label="รหัส"
+              required
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              v-model.number="editedItem.weight"
+              label="น้ำหนัก"
+              type="number"
+              required
+            />
+          </v-col>
+          <v-col cols="12">
+            <v-text-field
+              v-model="editedItem.name_th"
+              label="ชื่อตัวชี้วัด"
+              required
+            />
+          </v-col>
+          <v-col cols="12">
+            <v-select
+              v-model="editedItem.type"
+              :items="typeOptions"
+              label="ประเภท"
+              required
+            />
+          </v-col>
+          <v-col cols="12">
+            <v-switch
+              v-model="editedItem.active"
+              :label="editedItem.active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'"
+              :true-value="1"
+              :false-value="0"
+              color="success"
+            />
+          </v-col>
+        </v-row>
+      </template>
+    </CrudDialog>
 
-    <v-dialog v-model="dialogDelete" max-width="500px">
-      <v-card>
-        <v-card-title>ยืนยันการลบ</v-card-title>
-        <v-card-text>
-          คุณแน่ใจหรือไม่ว่าต้องการลบตัวชี้วัดนี้?
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn text @click="closeDelete">ยกเลิก</v-btn>
-          <v-btn color="error" @click="deleteItemConfirm">ลบ</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <DeleteDialog v-model="dialogDelete" :loading="loading" @confirm="deleteItemConfirm" />
   </v-container>
 </template>

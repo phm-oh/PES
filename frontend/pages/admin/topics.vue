@@ -12,6 +12,7 @@ const config = useRuntimeConfig()
 // ============= STATE =============
 const items = ref([])
 const loading = ref(false)
+const saving = ref(false)
 const dialog = ref(false)
 const dialogDelete = ref(false)
 const editedIndex = ref(-1)
@@ -80,26 +81,10 @@ function openDialog(item = null) {
   successMsg.value = ''
 }
 
-function closeDialog() {
-  dialog.value = false
-  setTimeout(() => {
-    editedItem.value = Object.assign({}, defaultItem)
-    editedIndex.value = -1
-  }, 300)
-}
-
 function openDeleteDialog(item) {
   editedIndex.value = items.value.indexOf(item)
   editedItem.value = Object.assign({}, item)
   dialogDelete.value = true
-}
-
-function closeDeleteDialog() {
-  dialogDelete.value = false
-  setTimeout(() => {
-    editedItem.value = Object.assign({}, defaultItem)
-    editedIndex.value = -1
-  }, 300)
 }
 
 async function save() {
@@ -112,51 +97,36 @@ async function save() {
     return
   }
 
-  loading.value = true
+  saving.value = true
   try {
-    if (editedIndex.value > -1) {
-      // Update
-      await $fetch(`${config.public.apiBase}/api/topics/${editedItem.value.id}`, {
-        method: 'PUT',
-        headers: { 
-          Authorization: `Bearer ${auth.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: {
-          code: editedItem.value.code,
-          title_th: editedItem.value.title_th,
-          description: editedItem.value.description || null,
-          weight: editedItem.value.weight || 0,
-          order: editedItem.value.order || 1,
-          active: editedItem.value.active ? 1 : 0
-        }
-      })
-      successMsg.value = 'แก้ไขข้อมูลสำเร็จ'
-    } else {
-      // Create
-      await $fetch(`${config.public.apiBase}/api/topics`, {
-        method: 'POST',
-        headers: { 
-          Authorization: `Bearer ${auth.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: {
-          code: editedItem.value.code,
-          title_th: editedItem.value.title_th,
-          description: editedItem.value.description || null,
-          weight: editedItem.value.weight || 0,
-          order: editedItem.value.order || 1,
-          active: editedItem.value.active ? 1 : 0
-        }
-      })
-      successMsg.value = 'เพิ่มข้อมูลสำเร็จ'
-    }
-    closeDialog()
+    const url = editedIndex.value > -1
+      ? `${config.public.apiBase}/api/topics/${editedItem.value.id}`
+      : `${config.public.apiBase}/api/topics`
+    const method = editedIndex.value > -1 ? 'PUT' : 'POST'
+
+    await $fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: {
+        code: editedItem.value.code,
+        title_th: editedItem.value.title_th,
+        description: editedItem.value.description || null,
+        weight: editedItem.value.weight || 0,
+        order: editedItem.value.order || 1,
+        active: editedItem.value.active ? 1 : 0
+      }
+    })
+
+    successMsg.value = editedIndex.value > -1 ? 'แก้ไขข้อมูลสำเร็จ' : 'เพิ่มข้อมูลสำเร็จ'
+    dialog.value = false
     await loadData()
   } catch (e) {
     errorMsg.value = e.response?.data?.message || e.message || 'บันทึกไม่สำเร็จ'
   } finally {
-    loading.value = false
+    saving.value = false
   }
 }
 
@@ -169,7 +139,7 @@ async function deleteItem() {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
     successMsg.value = 'ลบข้อมูลสำเร็จ'
-    closeDeleteDialog()
+    dialogDelete.value = false
     await loadData()
   } catch (e) {
     errorMsg.value = e.response?.data?.message || e.message || 'ลบไม่สำเร็จ'
@@ -251,108 +221,77 @@ onMounted(() => {
     </v-card>
 
     <!-- Create/Edit Dialog -->
-    <v-dialog v-model="dialog" max-width="600px" persistent>
-      <v-card>
-        <v-card-title class="text-h6 bg-primary">
-          {{ formTitle }}
-        </v-card-title>
-
-        <v-card-text class="pt-4">
-          <v-container>
-            <v-row dense>
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="editedItem.code"
-                  label="รหัสหัวข้อ *"
-                  hint="เช่น TOP1"
-                  persistent-hint
-                  density="compact"
-                  variant="outlined"
-                />
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model.number="editedItem.order"
-                  label="ลำดับที่ *"
-                  type="number"
-                  density="compact"
-                  variant="outlined"
-                />
-              </v-col>
-              <v-col cols="12">
-                <v-text-field
-                  v-model="editedItem.title_th"
-                  label="ชื่อหัวข้อ *"
-                  hint="เช่น ด้านการจัดการเรียนรู้"
-                  persistent-hint
-                  density="compact"
-                  variant="outlined"
-                />
-              </v-col>
-              <v-col cols="12">
-                <v-textarea
-                  v-model="editedItem.description"
-                  label="รายละเอียด"
-                  rows="2"
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                />
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model.number="editedItem.weight"
-                  label="น้ำหนักคะแนน (%)"
-                  type="number"
-                  hint="รวมทุกหัวข้อต้องเท่ากับ 100%"
-                  persistent-hint
-                  density="compact"
-                  variant="outlined"
-                />
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-switch
-                  v-model="editedItem.active"
-                  label="เปิดใช้งาน"
-                  color="success"
-                  :true-value="1"
-                  :false-value="0"
-                  hide-details
-                />
-              </v-col>
-            </v-row>
-          </v-container>
-
-          <v-alert v-if="errorMsg" type="error" variant="tonal" density="compact" class="mt-2">
-            {{ errorMsg }}
-          </v-alert>
-        </v-card-text>
-
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="closeDialog">ยกเลิก</v-btn>
-          <v-btn color="primary" variant="flat" :loading="loading" @click="save">บันทึก</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <CrudDialog v-model="dialog" :title="formTitle" :error="errorMsg" :saving="saving" @save="save" @update:error="errorMsg = $event">
+      <template #form>
+        <v-container>
+          <v-row dense>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="editedItem.code"
+                label="รหัสหัวข้อ *"
+                hint="เช่น TOP1"
+                persistent-hint
+                density="compact"
+                variant="outlined"
+              />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model.number="editedItem.order"
+                label="ลำดับที่ *"
+                type="number"
+                density="compact"
+                variant="outlined"
+              />
+            </v-col>
+            <v-col cols="12">
+              <v-text-field
+                v-model="editedItem.title_th"
+                label="ชื่อหัวข้อ *"
+                hint="เช่น ด้านการจัดการเรียนรู้"
+                persistent-hint
+                density="compact"
+                variant="outlined"
+              />
+            </v-col>
+            <v-col cols="12">
+              <v-textarea
+                v-model="editedItem.description"
+                label="รายละเอียด"
+                rows="2"
+                density="compact"
+                variant="outlined"
+                hide-details
+              />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model.number="editedItem.weight"
+                label="น้ำหนักคะแนน (%)"
+                type="number"
+                hint="รวมทุกหัวข้อต้องเท่ากับ 100%"
+                persistent-hint
+                density="compact"
+                variant="outlined"
+              />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-switch
+                v-model="editedItem.active"
+                label="เปิดใช้งาน"
+                color="success"
+                :true-value="1"
+                :false-value="0"
+                hide-details
+              />
+            </v-col>
+          </v-row>
+        </v-container>
+      </template>
+    </CrudDialog>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="dialogDelete" max-width="500px">
-      <v-card>
-        <v-card-title class="text-h6">ยืนยันการลบ</v-card-title>
-        <v-card-text>
-          คุณต้องการลบหัวข้อ <strong>{{ editedItem.title_th }}</strong> ใช่หรือไม่?
-          <v-alert type="warning" variant="tonal" density="compact" class="mt-3">
-            การลบจะไม่สามารถกู้คืนได้! และจะส่งผลต่อตัวชี้วัดที่เชื่อมโยงอยู่
-          </v-alert>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="closeDeleteDialog">ยกเลิก</v-btn>
-          <v-btn color="error" variant="flat" :loading="loading" @click="deleteItem">ลบ</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <DeleteDialog v-model="dialogDelete" :loading="loading" @confirm="deleteItem" />
   </div>
 </template>
 

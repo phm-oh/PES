@@ -11,8 +11,17 @@ const { periods, selectedPeriod, fetchPeriods } = usePeriods()
 const { errorMsg, setError } = useMessages()
 const { fetchData } = useApi()
 
-const tasks = ref([])
+const allTasks = ref([]) // เก็บ tasks ทั้งหมด
+const tasks = ref([]) // tasks ที่ filter แล้วตาม period
 const loading = ref(false)
+
+// Filter periods ที่มีงานจริงๆ
+const availablePeriods = computed(() => {
+  if (allTasks.value.length === 0) return periods.value
+
+  const periodIds = new Set(allTasks.value.map(t => t.period_id))
+  return periods.value.filter(p => periodIds.has(p.id))
+})
 
 const summary = computed(() => {
   const total = tasks.value.length
@@ -20,26 +29,50 @@ const summary = computed(() => {
   return { total, completed, pending: total - completed }
 })
 
-async function fetchTasks() {
-  if (!selectedPeriod.value) {
-    console.warn('⚠️ No period selected')
-    return
-  }
-
+// โหลด tasks ทั้งหมด (ไม่ระบุ period_id)
+async function fetchAllTasks() {
   loading.value = true
   setError('')
   try {
-    console.log('🔍 Fetching tasks for period:', selectedPeriod.value)
-    const res = await fetchData(`/api/assignments/mine?period_id=${selectedPeriod.value}`)
-    console.log('📋 Tasks response:', res)
-    console.log('📊 Tasks count:', res.items?.length || 0)
-    tasks.value = res.items || []
+    console.log('🔍 Fetching all tasks...')
+    const res = await fetchData('/api/assignments/mine')
+    console.log('📋 All tasks response:', res)
+    console.log('📊 Total tasks count:', res.items?.length || 0)
+    allTasks.value = res.items || []
+
+    // หา periods ที่มีงาน
+    const taskPeriodIds = [...new Set(allTasks.value.map(t => t.period_id))]
+    console.log('📅 Periods with tasks:', taskPeriodIds)
+
+    // ถ้ายังไม่ได้เลือก period หรือ period ที่เลือกไม่มีงาน
+    if (!selectedPeriod.value || !taskPeriodIds.includes(selectedPeriod.value)) {
+      // เลือก period แรกที่มีงาน
+      const firstPeriodWithTask = periods.value.find(p => taskPeriodIds.includes(p.id))
+      if (firstPeriodWithTask) {
+        selectedPeriod.value = firstPeriodWithTask.id
+        console.log('🎯 Auto-selected period:', selectedPeriod.value)
+      }
+    }
+
+    // Filter tasks ตาม period ที่เลือก
+    updateTasksForPeriod()
   } catch (e) {
     console.error('❌ Fetch tasks error:', e)
     setError(e.data?.message || e.message || 'Load failed')
   } finally {
     loading.value = false
   }
+}
+
+// Filter tasks ตาม period ที่เลือก
+function updateTasksForPeriod() {
+  if (!selectedPeriod.value) {
+    tasks.value = []
+    return
+  }
+
+  tasks.value = allTasks.value.filter(t => t.period_id === selectedPeriod.value)
+  console.log(`📊 Tasks for period ${selectedPeriod.value}:`, tasks.value.length)
 }
 
 function goToEvaluate(task) {
@@ -56,17 +89,18 @@ function getStatusText(status) {
 
 onMounted(async () => {
   console.log('🚀 Evaluator tasks page mounted')
-  await fetchPeriods(true)
-  console.log('📅 Periods loaded:', periods.value)
-  console.log('🎯 Selected period:', selectedPeriod.value)
-  if (selectedPeriod.value) {
-    fetchTasks()
-  } else {
-    console.warn('⚠️ No periods available or no period selected')
-  }
+  await fetchPeriods(true) // โหลด periods ที่ active
+  console.log('📅 Active periods loaded:', periods.value)
+
+  // โหลด tasks ทั้งหมดและเลือก period ที่มีงาน
+  await fetchAllTasks()
 })
 
-watch(selectedPeriod, fetchTasks)
+// เมื่อเปลี่ยน period ให้ filter tasks ใหม่
+watch(selectedPeriod, () => {
+  console.log('🔄 Period changed to:', selectedPeriod.value)
+  updateTasksForPeriod()
+})
 </script>
 
 <template>
@@ -82,7 +116,7 @@ watch(selectedPeriod, fetchTasks)
       <v-card-text>
         <v-row class="mb-4">
           <v-col cols="12" md="6">
-            <PeriodSelector v-model="selectedPeriod" :periods="periods" />
+            <PeriodSelector v-model="selectedPeriod" :periods="availablePeriods" />
           </v-col>
         </v-row>
 
@@ -123,7 +157,10 @@ watch(selectedPeriod, fetchTasks)
               {{ task.evaluatee_name }}
             </v-list-item-title>
             <v-list-item-subtitle>
-              มอบหมายเมื่อ: {{ new Date(task.assigned_at).toLocaleDateString('th-TH') }}
+              รอบการประเมิน: {{ task.period_name || 'N/A' }}
+              <span v-if="task.created_at" class="ml-2">
+                • มอบหมายเมื่อ: {{ new Date(task.created_at).toLocaleDateString('th-TH') }}
+              </span>
             </v-list-item-subtitle>
 
             <template #append>

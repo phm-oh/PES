@@ -52,6 +52,15 @@ export default defineNuxtConfig({
   //  pinia: {
   //   autoImports: ['defineStore', 'storeToRefs']
   // },
+
+  // ✅ Auto-import components จาก subdirectories แบบ flatten names
+  components: [
+    {
+      path: '~/components',
+      pathPrefix: false,
+    },
+  ],
+
   devtools: { enabled: false },
  runtimeConfig: {
     public: {

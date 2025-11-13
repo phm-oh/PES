@@ -31,7 +31,7 @@ exports.list = async (req, res, next) => {
     // กรณี admin เห็นทั้งหมด
     if (req.user?.role === "admin") {
       const items = await db("users")
-        .select("id", "name_th", "email", "role", "created_at")
+        .select("id", "name_th", "email", "role", "status", "created_at")
         .orderBy("id", "desc");
       return res.json({ success: true, items, total: items.length });
     }
@@ -41,7 +41,7 @@ exports.list = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
     const me = await db("users")
-      .select("id", "name_th", "email", "role", "created_at")
+      .select("id", "name_th", "email", "role", "status", "created_at")
       .where({ id: req.user.id })
       .first();
 
@@ -64,7 +64,7 @@ exports.list = async (req, res, next) => {
 exports.get = async (req, res, next) => {
   try {
     const row = await db("users")
-      .select("id", "name_th", "email", "role", "created_at")
+      .select("id", "name_th", "email", "role", "status", "created_at")
       .where({ id: req.params.id })
       .first();
 
@@ -88,7 +88,7 @@ exports.get = async (req, res, next) => {
  */
 exports.create = async (req, res, next) => {
   try {
-    const { name_th, email, password, role = "evaluatee" } = req.body || {};
+    const { name_th, email, password, role = "evaluatee", status = "active" } = req.body || {};
 
     // 1) ตรวจว่ามีฟิลด์จำเป็นไหม
     if (!name_th || !email || !password) {
@@ -114,9 +114,10 @@ exports.create = async (req, res, next) => {
       email,
       password_hash,
       role,
+      status,
     });
     const created = await db("users")
-      .select("id", "name_th", "email", "role", "created_at")
+      .select("id", "name_th", "email", "role", "status", "created_at")
       .where({ id: insertId })
       .first();
 
@@ -139,7 +140,7 @@ exports.update = async (req, res, next) => {
     const id = req.params.id;
     if (!id) return res.status(400).json({ success: false, message: "Missing user ID" });
 
-    const { name_th, email, role, password, phone, position } = req.body || {};
+    const { name_th, email, role, password, phone, position, status } = req.body || {};
     const payload = {};
 
     // 1) เก็บเฉพาะฟิลด์ที่ส่งเข้ามา (ไม่บังคับต้องส่งครบ)
@@ -148,6 +149,7 @@ exports.update = async (req, res, next) => {
     if (role != null) payload.role = role;
     if (phone != null) payload.phone = phone;
     if (position != null) payload.position = position;
+    if (status != null) payload.status = status;
 
     // 2) ถ้าเปลี่ยนรหัสผ่าน -> แฮชใหม่
     if (password && password.trim() !== "") {
@@ -174,7 +176,7 @@ exports.update = async (req, res, next) => {
 
     // 5) อ่านข้อมูลล่าสุดกลับเพื่อส่งให้ client (ไม่รวม password_hash)
     const updated = await db("users")
-      .select("id", "name_th", "email", "role", "phone", "position", "created_at")
+      .select("id", "name_th", "email", "role", "status", "phone", "position", "created_at")
       .where({ id })
       .first();
 
@@ -243,7 +245,7 @@ exports.listServer = async (req, res, next) => {
 
     // 5) ดึงแถวเฉพาะหน้าที่ต้องการ (LIMIT/OFFSET + ORDER)
     const items = await db("users")
-      .select("id", "name_th", "email", "role", "created_at")
+      .select("id", "name_th", "email", "role", "status", "created_at")
       .whereRaw("CONCAT(id,' ',name_th,' ',email,' ',role) LIKE ?", [like])
       .orderBy(column, dir)
       .limit(itemsPerPage)

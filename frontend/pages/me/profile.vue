@@ -15,9 +15,7 @@ const loading = ref(false)
 const editing = ref(false)
 const form = ref({
   name_th: '',
-  email: '',
-  phone: '',
-  position: ''
+  email: ''
 })
 const errorMsg = ref('')
 const successMsg = ref('')
@@ -33,9 +31,7 @@ async function fetchProfile() {
     user.value = res.data
     form.value = {
       name_th: user.value.name_th || '',
-      email: user.value.email || '',
-      phone: user.value.phone || '',
-      position: user.value.position || ''
+      email: user.value.email || ''
     }
   } catch (e) {
     errorMsg.value = e.data?.message || e.message || 'Load failed'
@@ -49,13 +45,14 @@ async function saveProfile() {
   errorMsg.value = ''
   successMsg.value = ''
   try {
+    // ส่งเฉพาะ name_th (email ไม่ต้องส่งเพราะไม่ให้แก้)
     await $fetch(`${config.public.apiBase}/api/users/${auth.user.id}`, {
       method: 'PUT',
-      headers: { 
+      headers: {
         Authorization: `Bearer ${auth.token}`,
         'Content-Type': 'application/json'
       },
-      body: form.value
+      body: { name_th: form.value.name_th }
     })
     successMsg.value = 'บันทึกสำเร็จ'
     editing.value = false
@@ -73,9 +70,7 @@ function cancelEdit() {
   editing.value = false
   form.value = {
     name_th: user.value.name_th || '',
-    email: user.value.email || '',
-    phone: user.value.phone || '',
-    position: user.value.position || ''
+    email: user.value.email || ''
   }
 }
 
@@ -155,20 +150,6 @@ onMounted(() => {
                 density="comfortable"
                 variant="outlined"
                 disabled
-                class="mb-2"
-              />
-              <v-text-field
-                v-model="form.phone"
-                label="เบอร์โทรศัพท์"
-                density="comfortable"
-                variant="outlined"
-                class="mb-2"
-              />
-              <v-text-field
-                v-model="form.position"
-                label="ตำแหน่ง"
-                density="comfortable"
-                variant="outlined"
                 class="mb-4"
               />
 
@@ -194,18 +175,6 @@ onMounted(() => {
                   <div class="mb-4">
                     <div class="text-caption text-medium-emphasis">อีเมล</div>
                     <div class="text-body-1">{{ user.email || '-' }}</div>
-                  </div>
-                </v-col>
-                <v-col cols="12" sm="6">
-                  <div class="mb-4">
-                    <div class="text-caption text-medium-emphasis">เบอร์โทรศัพท์</div>
-                    <div class="text-body-1">{{ user.phone || '-' }}</div>
-                  </div>
-                </v-col>
-                <v-col cols="12" sm="6">
-                  <div class="mb-4">
-                    <div class="text-caption text-medium-emphasis">ตำแหน่ง</div>
-                    <div class="text-body-1">{{ user.position || '-' }}</div>
                   </div>
                 </v-col>
               </v-row>

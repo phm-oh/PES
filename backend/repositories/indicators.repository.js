@@ -4,7 +4,7 @@
 const db = require('../db/knex');
 const TABLE = 'indicators';
 
-// ดึงทั้งหมด พร้อม JOIN topics
+// ดึงทั้งหมด พร้อม JOIN topics (เฉพาะที่ active)
 exports.findAll = async () => {
   return db(TABLE)
     .select(
@@ -12,6 +12,7 @@ exports.findAll = async () => {
       'evaluation_topics.title_th as topic_name'
     )
     .leftJoin('evaluation_topics', 'indicators.topic_id', 'evaluation_topics.id')
+    .where('indicators.active', 1)
     .orderBy('indicators.topic_id', 'asc')
     .orderBy('indicators.id', 'asc');
 };

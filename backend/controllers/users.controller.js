@@ -140,15 +140,13 @@ exports.update = async (req, res, next) => {
     const id = req.params.id;
     if (!id) return res.status(400).json({ success: false, message: "Missing user ID" });
 
-    const { name_th, email, role, password, phone, position, status } = req.body || {};
+    const { name_th, email, role, password, status } = req.body || {};
     const payload = {};
 
     // 1) เก็บเฉพาะฟิลด์ที่ส่งเข้ามา (ไม่บังคับต้องส่งครบ)
     if (name_th != null) payload.name_th = name_th;
     if (email != null) payload.email = email;
     if (role != null) payload.role = role;
-    if (phone != null) payload.phone = phone;
-    if (position != null) payload.position = position;
     if (status != null) payload.status = status;
 
     // 2) ถ้าเปลี่ยนรหัสผ่าน -> แฮชใหม่
@@ -176,7 +174,7 @@ exports.update = async (req, res, next) => {
 
     // 5) อ่านข้อมูลล่าสุดกลับเพื่อส่งให้ client (ไม่รวม password_hash)
     const updated = await db("users")
-      .select("id", "name_th", "email", "role", "status", "phone", "position", "created_at")
+      .select("id", "name_th", "email", "role", "status", "created_at")
       .where({ id })
       .first();
 

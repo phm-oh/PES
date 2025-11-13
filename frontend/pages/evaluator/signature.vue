@@ -70,24 +70,20 @@ function closeSignDialog() {
 
 async function confirmSign() {
   if (!selectedDoc.value) return
-  
+
   signing.value = true
   errorMsg.value = ''
   successMsg.value = ''
-  
+
   try {
-    await $fetch(`${config.public.apiBase}/api/assignments/${selectedDoc.value.id}/sign`, {
+    await $fetch(`${config.public.apiBase}/api/results/sign/${selectedDoc.value.evaluatee_id}/${selectedPeriod.value}`, {
       method: 'POST',
-      headers: { 
+      headers: {
         Authorization: `Bearer ${auth.token}`,
         'Content-Type': 'application/json'
-      },
-      body: {
-        signature: 'digital_signature', // TODO: Implement real signature
-        signed_at: new Date().toISOString()
       }
     })
-    
+
     successMsg.value = 'ลงนามสำเร็จ'
     closeSignDialog()
     await fetchDocuments()
@@ -198,17 +194,38 @@ onMounted(() => {
             <div class="text-caption mt-1">{{ selectedDoc?.period_name }}</div>
           </v-alert>
 
-          <!-- TODO: Implement signature pad canvas -->
-          <v-card variant="outlined" class="pa-4 text-center" min-height="200">
-            <v-icon size="64" color="grey">mdi-draw</v-icon>
-            <div class="text-caption mt-2 text-medium-emphasis">
-              Signature Pad - Coming Soon
-            </div>
+          <!-- Text-based Signature -->
+          <v-card variant="outlined" class="pa-6">
+            <v-row dense>
+              <v-col cols="12">
+                <v-text-field
+                  :model-value="auth.user?.name_th"
+                  label="ลงนามโดย"
+                  readonly
+                  density="comfortable"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-account"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  :model-value="new Date().toLocaleString('th-TH', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                  })"
+                  label="วันที่ลงนาม"
+                  readonly
+                  density="comfortable"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-calendar-clock"
+                />
+              </v-col>
+            </v-row>
           </v-card>
 
           <v-alert type="warning" variant="tonal" class="mt-4">
             <div class="text-caption">
-              การลงนามอิเล็กทรอนิกส์มีผลทางกฎหมายเท่าเทียมกับลายเซ็นจริง
+              การลงนามอิเล็กทรอนิกส์จะบันทึกวันที่และเวลาที่ทำการยืนยัน
             </div>
           </v-alert>
         </v-card-text>

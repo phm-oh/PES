@@ -313,3 +313,27 @@ exports.initResultsForMe = async (req, res, next) => {
     next(e);
   }
 };
+
+// POST /api/results/sign/:evaluateeId/:periodId
+// ลงนามยืนยันการประเมิน (Evaluator)
+exports.signEvaluation = async (req, res, next) => {
+  try {
+    const { evaluateeId, periodId } = req.params;
+    const evaluatorId = req.user.id;
+
+    if (!evaluateeId || !periodId) {
+      return res.status(400).json({ success: false, message: 'evaluateeId and periodId required' });
+    }
+
+    // อัปเดต evaluated_at สำหรับทุก results ของ evaluatee ในรอบนี้
+    const result = await repo.signEvaluationResults(evaluateeId, periodId, evaluatorId);
+
+    res.json({
+      success: true,
+      message: 'ลงนามสำเร็จ',
+      data: result
+    });
+  } catch (e) {
+    next(e);
+  }
+};

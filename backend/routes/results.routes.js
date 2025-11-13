@@ -25,4 +25,7 @@ router.get('/my-progress', ctrl.getMyProgress);
 router.post('/init-for-period', requireAuth, ctrl.initResultsForPeriod); // Admin สร้างให้ทุกคน
 router.post('/init-for-me', requireAuth, ctrl.initResultsForMe);         // Evaluatee สร้างให้ตัวเอง
 
+// ============= Digital Signature Route =============
+router.post('/sign/:evaluateeId/:periodId', requireAuth, ctrl.signEvaluation); // Evaluator ลงนาม
+
 module.exports = router;

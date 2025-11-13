@@ -253,3 +253,18 @@ exports.initResultsForEvaluatee = async (evaluateeId, periodId) => {
 
   return { created: createdCount };
 };
+// ลงนามยืนยันการประเมิน
+exports.signEvaluationResults = async (evaluateeId, periodId, evaluatorId) => {
+  const updated = await db(TABLE)
+    .where({
+      evaluatee_id: evaluateeId,
+      period_id: periodId
+    })
+    .update({
+      evaluator_id: evaluatorId,
+      evaluated_at: db.fn.now(),
+      status: 'evaluated'
+    });
+
+  return { updated, evaluator_id: evaluatorId, signed_at: new Date() };
+};

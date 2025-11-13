@@ -114,7 +114,7 @@ onMounted(() => {
             <v-avatar size="120" color="primary">
               <v-img v-if="user.avatar_url" :src="user.avatar_url" alt="Avatar" />
               <span v-else class="text-h3 text-white">
-                {{ user.name?.charAt(0).toUpperCase() || '?' }}
+                {{ user.name_th?.charAt(0).toUpperCase() || '?' }}
               </span>
             </v-avatar>
             <div class="mt-4">
@@ -187,7 +187,7 @@ onMounted(() => {
                 <v-col cols="12" sm="6">
                   <div class="mb-4">
                     <div class="text-caption text-medium-emphasis">ชื่อ-นามสกุล</div>
-                    <div class="text-body-1">{{ user.name || '-' }}</div>
+                    <div class="text-body-1">{{ user.name_th || '-' }}</div>
                   </div>
                 </v-col>
                 <v-col cols="12" sm="6">

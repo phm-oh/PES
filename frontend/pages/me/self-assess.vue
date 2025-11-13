@@ -74,14 +74,13 @@ async function fetchIndicators() {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
     
-    const indicatorsRes = await $fetch(`${config.public.apiBase}/api/attachments/indicators`, {
-      params: { period_id: selectedPeriod.value },
+    const indicatorsRes = await $fetch(`${config.public.apiBase}/api/indicators`, {
       headers: { Authorization: `Bearer ${auth.token}` }
     })
-    
+
     // จัดกลุ่ม indicators ตาม topic
     const topicsData = topicsRes.items || []
-    const indicatorsData = indicatorsRes || []
+    const indicatorsData = indicatorsRes.items || []
     
     topics.value = topicsData.map(topic => ({
       ...topic,

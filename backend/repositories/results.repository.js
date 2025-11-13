@@ -160,7 +160,7 @@ exports.initResultsForPeriod = async (periodId) => {
   const evaluatees = await db('users')
     .select('id')
     .whereIn('role', ['evaluatee', 'user'])
-    .where('is_active', true);
+    .where('status', 'active');
 
   if (evaluatees.length === 0) {
     return { created: 0, total_evaluatees: 0, total_indicators: 0 };

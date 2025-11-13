@@ -1,71 +1,65 @@
-<!-- frontend/pages/admin/reports.vue -->
-<!-- 📊 หน้ารายงานสรุป (Admin Only) -->
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useAuthStore } from '~/stores/auth'
+import { ref } from 'vue'
+import { usePeriods } from '~/composables/usePeriods'
+import { useMessages } from '~/composables/useMessages'
+import { useApi } from '~/composables/useApi'
 
 definePageMeta({ layout: 'dashboard' })
 
-const auth = useAuthStore()
-const config = useRuntimeConfig()
+const { periods, selectedPeriod, fetchPeriods } = usePeriods()
+const { errorMsg, setError } = useMessages()
+const { fetchData } = useApi()
 
-// ============= STATE =============
-const periods = ref([])
-const selectedPeriod = ref(null)
 const loading = ref(false)
 const reportData = ref(null)
-const errorMsg = ref('')
-
-// ============= METHODS =============
-async function fetchPeriods() {
-  try {
-    const res = await $fetch(`${config.public.apiBase}/api/periods`, {
-      headers: { Authorization: `Bearer ${auth.token}` }
-    })
-    periods.value = res.items || []
-    if (periods.value.length > 0) {
-      selectedPeriod.value = periods.value[0].id
-      fetchReport()
-    }
-  } catch (e) {
-    console.error('Load periods failed:', e)
-  }
-}
 
 async function fetchReport() {
   if (!selectedPeriod.value) return
-  
+
   loading.value = true
-  errorMsg.value = ''
+  setError('')
   try {
-    const res = await $fetch(`${config.public.apiBase}/api/reports/overall/${selectedPeriod.value}`, {
-      headers: { Authorization: `Bearer ${auth.token}` }
-    })
-    reportData.value = res.data || null
+    const res = await fetchData(`/api/reports/overall/${selectedPeriod.value}`)
+    reportData.value = calculateStats(res.items || [])
   } catch (e) {
-    errorMsg.value = e.data?.message || e.message || 'Load failed'
+    setError(e.data?.message || e.message || 'Load failed')
   } finally {
     loading.value = false
   }
 }
 
-async function exportCSV() {
-  try {
-    // TODO: Implement CSV export
-    alert('CSV Export coming soon!')
-  } catch (e) {
-    errorMsg.value = e.data?.message || e.message || 'Export failed'
+function calculateStats(items) {
+  if (!items.length) return null
+
+  const total = items.length
+  const completed = items.filter(i => i.status === 'completed').length
+  const inProgress = items.filter(i => i.status === 'in_progress').length
+  const avgScore = items.reduce((sum, i) => sum + (i.score || 0), 0) / total
+
+  return {
+    total_evaluatees: total,
+    completed,
+    in_progress: inProgress,
+    average_score: avgScore.toFixed(2)
   }
 }
 
-onMounted(() => {
-  fetchPeriods()
+async function exportCSV() {
+  alert('CSV Export - สามารถเพิ่มฟังก์ชันนี้ได้ในภายหลัง')
+}
+
+onMounted(async () => {
+  await fetchPeriods()
+  if (selectedPeriod.value) fetchReport()
+})
+
+watch(selectedPeriod, () => {
+  if (selectedPeriod.value) fetchReport()
 })
 </script>
 
 <template>
   <div class="pa-4">
-    <!-- Header -->
     <div class="d-flex justify-space-between align-center mb-6">
       <div>
         <h1 class="text-h4 font-weight-bold">Reports</h1>
@@ -81,70 +75,56 @@ onMounted(() => {
       </v-btn>
     </div>
 
-    <!-- Period Selector -->
     <v-card class="mb-6">
       <v-card-text>
-        <v-select
-          v-model="selectedPeriod"
-          :items="periods"
-          item-title="name_th"
-          item-value="id"
-          label="เลือกรอบการประเมิน"
-          density="comfortable"
-          variant="outlined"
-          @update:model-value="fetchReport"
-        />
+        <PeriodSelector v-model="selectedPeriod" :periods="periods" />
       </v-card-text>
     </v-card>
 
-    <!-- Loading -->
     <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-4" />
 
-    <!-- Error Message -->
-    <v-alert v-if="errorMsg" type="error" class="mb-4">{{ errorMsg }}</v-alert>
+    <AlertMessage v-model="errorMsg" type="error" :message="errorMsg" />
 
-    <!-- Report Content -->
-    <v-card v-if="reportData">
+    <v-card v-if="reportData && !loading">
       <v-card-title>สรุปภาพรวม</v-card-title>
       <v-card-text>
         <v-row>
           <v-col cols="12" md="3">
-            <v-card variant="tonal" color="primary">
-              <v-card-text class="text-center">
-                <div class="text-h3 font-weight-bold">{{ reportData.total_evaluatees || 0 }}</div>
-                <div class="text-subtitle-2 mt-2">ผู้ถูกประเมินทั้งหมด</div>
-              </v-card-text>
-            </v-card>
+            <StatCard
+              title="ผู้ถูกประเมินทั้งหมด"
+              :value="reportData.total_evaluatees"
+              color="primary"
+              icon="mdi-account-group"
+            />
           </v-col>
           <v-col cols="12" md="3">
-            <v-card variant="tonal" color="success">
-              <v-card-text class="text-center">
-                <div class="text-h3 font-weight-bold">{{ reportData.completed || 0 }}</div>
-                <div class="text-subtitle-2 mt-2">ประเมินเสร็จแล้ว</div>
-              </v-card-text>
-            </v-card>
+            <StatCard
+              title="ประเมินเสร็จแล้ว"
+              :value="reportData.completed"
+              color="success"
+              icon="mdi-check-circle"
+            />
           </v-col>
           <v-col cols="12" md="3">
-            <v-card variant="tonal" color="warning">
-              <v-card-text class="text-center">
-                <div class="text-h3 font-weight-bold">{{ reportData.in_progress || 0 }}</div>
-                <div class="text-subtitle-2 mt-2">กำลังดำเนินการ</div>
-              </v-card-text>
-            </v-card>
+            <StatCard
+              title="กำลังดำเนินการ"
+              :value="reportData.in_progress"
+              color="warning"
+              icon="mdi-clock-outline"
+            />
           </v-col>
           <v-col cols="12" md="3">
-            <v-card variant="tonal" color="info">
-              <v-card-text class="text-center">
-                <div class="text-h3 font-weight-bold">{{ reportData.average_score || 0 }}</div>
-                <div class="text-subtitle-2 mt-2">คะแนนเฉลี่ย</div>
-              </v-card-text>
-            </v-card>
+            <StatCard
+              title="คะแนนเฉลี่ย"
+              :value="reportData.average_score"
+              color="info"
+              icon="mdi-chart-line"
+            />
           </v-col>
         </v-row>
       </v-card-text>
     </v-card>
 
-    <!-- Empty State -->
     <v-card v-else-if="!loading">
       <v-card-text class="text-center py-12">
         <v-icon size="64" color="grey-lighten-1">mdi-chart-box-outline</v-icon>

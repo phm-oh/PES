@@ -62,7 +62,6 @@ async function fetchPeriods() {
     })
     periods.value = res.items || []
   } catch (e) {
-    console.error('Load periods failed:', e)
   }
 }
 
@@ -81,10 +80,7 @@ async function fetchUsers() {
     })
     evaluatees.value = resEvaluatees.items || []
     
-    console.log('✅ EVALUATORS:', evaluators.value)
-    console.log('✅ EVALUATEES:', evaluatees.value)
   } catch (e) {
-    console.error('Load users failed:', e)
     errorMsg.value = 'โหลดข้อมูลผู้ใช้ไม่สำเร็จ'
   }
 }

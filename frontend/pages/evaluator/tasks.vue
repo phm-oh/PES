@@ -34,15 +34,11 @@ async function fetchAllTasks() {
   loading.value = true
   setError('')
   try {
-    console.log('🔍 Fetching all tasks...')
     const res = await fetchData('/api/assignments/mine')
-    console.log('📋 All tasks response:', res)
-    console.log('📊 Total tasks count:', res.items?.length || 0)
     allTasks.value = res.items || []
 
     // หา periods ที่มีงาน
     const taskPeriodIds = [...new Set(allTasks.value.map(t => t.period_id))]
-    console.log('📅 Periods with tasks:', taskPeriodIds)
 
     // ถ้ายังไม่ได้เลือก period หรือ period ที่เลือกไม่มีงาน
     if (!selectedPeriod.value || !taskPeriodIds.includes(selectedPeriod.value)) {
@@ -50,14 +46,12 @@ async function fetchAllTasks() {
       const firstPeriodWithTask = periods.value.find(p => taskPeriodIds.includes(p.id))
       if (firstPeriodWithTask) {
         selectedPeriod.value = firstPeriodWithTask.id
-        console.log('🎯 Auto-selected period:', selectedPeriod.value)
       }
     }
 
     // Filter tasks ตาม period ที่เลือก
     updateTasksForPeriod()
   } catch (e) {
-    console.error('❌ Fetch tasks error:', e)
     setError(e.data?.message || e.message || 'Load failed')
   } finally {
     loading.value = false
@@ -72,7 +66,6 @@ function updateTasksForPeriod() {
   }
 
   tasks.value = allTasks.value.filter(t => t.period_id === selectedPeriod.value)
-  console.log(`📊 Tasks for period ${selectedPeriod.value}:`, tasks.value.length)
 }
 
 function goToEvaluate(task) {
@@ -88,9 +81,7 @@ function getStatusText(status) {
 }
 
 onMounted(async () => {
-  console.log('🚀 Evaluator tasks page mounted')
   await fetchPeriods(true) // โหลด periods ที่ active
-  console.log('📅 Active periods loaded:', periods.value)
 
   // โหลด tasks ทั้งหมดและเลือก period ที่มีงาน
   await fetchAllTasks()
@@ -98,7 +89,6 @@ onMounted(async () => {
 
 // เมื่อเปลี่ยน period ให้ filter tasks ใหม่
 watch(selectedPeriod, () => {
-  console.log('🔄 Period changed to:', selectedPeriod.value)
   updateTasksForPeriod()
 })
 </script>

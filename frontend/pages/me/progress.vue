@@ -69,7 +69,6 @@ async function fetchPeriods() {
       fetchProgress()
     }
   } catch (e) {
-    console.error('Load periods failed:', e)
   }
 }
 
@@ -93,7 +92,6 @@ async function fetchProgress() {
       })
       assignments.value = assignRes.items || []
     } catch (e) {
-      console.error('Load assignments failed:', e)
     }
   } catch (e) {
     errorMsg.value = e.data?.message || e.message || 'Load failed'

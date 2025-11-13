@@ -36,7 +36,6 @@ async function fetchEvaluatee() {
     })
     evaluatee.value = res.data
   } catch (e) {
-    console.error('Load evaluatee failed:', e)
   }
 }
 
@@ -87,7 +86,6 @@ async function fetchResults() {
       return acc
     }, {})
   } catch (e) {
-    console.error('Load results failed:', e)
   }
 }
 
@@ -104,7 +102,6 @@ async function fetchComments() {
       }
     })
   } catch (e) {
-    console.error('Load comments failed:', e)
   }
 }
 

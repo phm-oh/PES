@@ -32,7 +32,7 @@ async function fetchPeriods() {
       await fetchIndicators()
     }
   } catch (e) {
-    console.error('Load periods failed:', e)
+    errorMsg.value = 'Load periods failed'
   }
 }
 
@@ -52,12 +52,11 @@ async function initMyResults() {
     })
     
     if (res.success && res.data.created > 0) {
-      console.log(`Created ${res.data.created} evaluation records`)
       // โหลดผลประเมินใหม่
       await fetchMyResults()
     }
   } catch (e) {
-    console.error('Init results failed:', e)
+    errorMsg.value = 'Init results failed'
   } finally {
     initializing.value = false
   }
@@ -118,7 +117,7 @@ async function fetchMyResults() {
       return acc
     }, {})
   } catch (e) {
-    console.error('Load results failed:', e)
+    errorMsg.value = 'Load results failed'
   }
 }
 
@@ -141,10 +140,7 @@ async function handleFileUpload(indicatorId, event) {
       results.value[indicatorId] = { score: 0, note: '', files: [] }
     }
     results.value[indicatorId].files.push(res.url)
-    
-    console.log('File uploaded:', res.url)
   } catch (e) {
-    console.error('Upload failed:', e)
     errorMsg.value = 'Upload failed'
   }
 }

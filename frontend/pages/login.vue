@@ -77,7 +77,6 @@ const onSubmit = handleSubmit(async (values) => {
     }
   } catch (e) {
     errorMsg.value = e.response?.data?.message || e.message || 'Login error'
-    console.error('LOGIN ERROR:', e)
   } finally {
     loading.value = false
   }

@@ -33,7 +33,6 @@ async function fetchPeriods() {
       fetchDocuments()
     }
   } catch (e) {
-    console.error('Load periods failed:', e)
   }
 }
 

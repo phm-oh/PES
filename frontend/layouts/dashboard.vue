@@ -87,7 +87,7 @@
             prepend-icon="mdi-account"
           />
           <v-divider class="my-2" />
-          <NuxtLink to="/me" class="no-underline">
+          <NuxtLink to="/me/profile" class="no-underline">
             <v-list-item title="Profile" prepend-icon="mdi-account-cog-outline" />
           </NuxtLink>
           <v-list-item title="Logout" prepend-icon="mdi-logout" @click="logout" />

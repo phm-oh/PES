@@ -18,12 +18,5 @@ const db = knex({
   pool: { min: 0, max: 10, acquireTimeoutMillis: 20000 },
 });
 
-// ช่วยตรวจว่าโหลดค่าถูกจริง
-console.log('[DB-CONFIG]', {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  db: process.env.DB_NAME,
-});
-
 module.exports = db;
 

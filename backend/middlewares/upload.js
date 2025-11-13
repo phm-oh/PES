@@ -38,13 +38,11 @@ function ensureDir(dir) {
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     // ใช้ period_id + evaluatee_id (จาก JWT หรือ body สำหรับ admin)
-    console.log('__dirname', __dirname);
     const base = path.join(__dirname, '..', 'uploads');
     const period = String(req.body.period_id || 'misc');
     const evaluatee = String((req.user && req.user.id) || req.body.evaluatee_id || 'unknown');
     const dest = path.join(base, period, evaluatee);
     ensureDir(dest);
-    console.log('Upload destination:', dest);
     cb(null, dest);
   },
   filename: (req, file, cb) => {

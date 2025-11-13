@@ -17,8 +17,7 @@ app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split('
 app.use(express.urlencoded({ extended: true }));  // ใส่คู่กับ express.json()
 app.use(express.json());
 app.use(morgan("dev"));
-app.get('/oh',function(req,res){ 
-  console.log("req=",req.query)
+app.get('/oh',function(req,res){
     res.send({
       status: 'Hello World oak!',
       data: req.query

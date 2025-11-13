@@ -7,10 +7,8 @@ const indicatorsRepo = require('../repositories/indicators.repository');
 exports.list = async (req, res, next) => {
   try {
     const items = await indicatorsRepo.findAll();
-    console.log('📋 Indicators fetched:', items.length, 'items');
     res.json({ success: true, items, total: items.length });
   } catch (e) {
-    console.error('❌ Error in indicators.list:', e);
     next(e);
   }
 };
@@ -64,8 +62,7 @@ exports.create = async (req, res, next) => {
       weight: weight !== undefined ? weight : 1,
       active: active !== undefined ? active : 1
     });
-    
-    console.log('✅ Indicator created:', created);
+
     res.status(201).json({ success: true, data: created });
   } catch (e) {
     next(e);
@@ -73,12 +70,10 @@ exports.create = async (req, res, next) => {
 };
 
 // PUT /api/indicators/:id
-// ⭐ ส่วนเพิ่มเติม: log การ update
 exports.update = async (req, res, next) => {
   try {
     const updated = await indicatorsRepo.update(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
-    console.log('✅ Indicator updated:', updated);
     res.json({ success: true, data: updated });
   } catch (e) {
     next(e);

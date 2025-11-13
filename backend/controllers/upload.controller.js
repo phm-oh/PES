@@ -26,12 +26,6 @@ async function isPeriodActive(period_id) {
 // Body: { period_id, indicator_id, evidence_type_id } + file
 // =====================================================================
 exports.uploadEvidence = async (req, res, next) => {
-  console.log('uploadEvidence body=', req.body);
-  console.log('uploadEvidence file=', req.file);
-  console.log('uploadEvidence user=', req.user);
-  console.log('uploadEvidence user.id=', req.user?.id);
-  console.log('uploadEvidence user.role=', req.user?.role);
-  console.log('uploadEvidence user.email=', req.user?.email); 
   try {
     const evaluatee_id = Number(req.user?.id);// ต้องมี user.id จาก JWT เสมอ  return 401 ถ้าไม่มี   ถ้ามี return 400
         if (!evaluatee_id) return res.status(401).json({ success:false, message:'invalid user' });
@@ -62,9 +56,7 @@ exports.uploadEvidence = async (req, res, next) => {
     });
     if (!okMap) return res.status(400).json({ success:false, message:'invalid indicator/evidence_type pair' });
     // บันทึกลงตาราง attachments
-    // console.log('req.file.path=', req.file.path);
     const storage_path = relFromUploads(req.file.path);
-    console.log('storage_path=', storage_path);
     const [id] = await db('attachments').insert({
       period_id: Number(period_id),
       evaluatee_id,

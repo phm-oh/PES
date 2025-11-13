@@ -128,18 +128,20 @@ async function saveEvaluation() {
     // บันทึกคะแนน
     const scoreItems = Object.entries(results.value).map(([indicator_id, data]) => ({
       indicator_id: Number(indicator_id),
-      period_id: Number(periodId.value),
-      evaluatee_id: Number(evaluateeId.value),
       score: data.evaluator_score || 0
     }))
 
     await $fetch(`${config.public.apiBase}/api/results/evaluate/bulk`, {
       method: 'POST',
-      headers: { 
+      headers: {
         Authorization: `Bearer ${auth.token}`,
         'Content-Type': 'application/json'
       },
-      body: { items: scoreItems }
+      body: {
+        evaluatee_id: Number(evaluateeId.value),
+        period_id: Number(periodId.value),
+        items: scoreItems
+      }
     })
 
     // บันทึกความคิดเห็น

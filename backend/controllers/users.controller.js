@@ -64,7 +64,7 @@ exports.list = async (req, res, next) => {
 exports.get = async (req, res, next) => {
   try {
     const row = await db("users")
-      .select("id", "name_th", "email", "role", "phone", "position", "created_at")
+      .select("id", "name_th", "email", "role", "created_at")
       .where({ id: req.params.id })
       .first();
 

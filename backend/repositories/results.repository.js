@@ -169,7 +169,7 @@ exports.initResultsForPeriod = async (periodId) => {
   // ดึง indicators ที่ active ทั้งหมด
   const indicators = await db('indicators')
     .select('id')
-    .where('is_active', true);
+    .where('active', 1);
 
   if (indicators.length === 0) {
     return { created: 0, total_evaluatees: evaluatees.length, total_indicators: 0 };
@@ -218,7 +218,7 @@ exports.initResultsForEvaluatee = async (evaluateeId, periodId) => {
   // ดึง indicators ที่ active
   const indicators = await db('indicators')
     .select('id')
-    .where('is_active', true);
+    .where('active', 1);
 
   if (indicators.length === 0) {
     return { created: 0 };

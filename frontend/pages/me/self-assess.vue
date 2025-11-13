@@ -285,19 +285,25 @@ onMounted(() => {
 
                   <!-- คะแนน -->
                   <div class="d-flex align-center mb-3">
-                    <span class="mr-4">คะแนน:</span>
+                    <span class="mr-4 text-subtitle-2">คะแนน:</span>
                     <v-slider
                       :model-value="getScore(indicator.id)"
                       @update:model-value="setScore(indicator.id, $event)"
                       :min="0"
                       :max="indicator.type === 'yes_no' ? 1 : 10"
                       :step="1"
-                      thumb-label
-                      :color="getScore(indicator.id) > 0 ? 'primary' : 'grey'"
+                      thumb-label="always"
+                      show-ticks
+                      tick-size="4"
+                      track-size="6"
+                      thumb-size="20"
+                      color="primary"
+                      track-color="grey-lighten-2"
                       class="flex-grow-1"
+                      style="min-height: 48px;"
                     />
-                    <v-chip class="ml-4" :color="getScore(indicator.id) > 0 ? 'primary' : 'grey'">
-                      {{ getScore(indicator.id) }}
+                    <v-chip class="ml-4" :color="getScore(indicator.id) > 0 ? 'primary' : 'grey'" size="large">
+                      <strong>{{ getScore(indicator.id) }}</strong>
                     </v-chip>
                   </div>
 

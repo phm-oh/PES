@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { usePeriods } from '~/composables/usePeriods'
 import { useMessages } from '~/composables/useMessages'
 import { useApi } from '~/composables/useApi'
@@ -84,7 +84,7 @@ watch(selectedPeriod, fetchTasks)
           </v-col>
         </v-row>
 
-        <AlertMessage v-model="errorMsg" type="error" :message="errorMsg" />
+        <AlertMessage type="error" :message="errorMsg" @clear="errorMsg = '" />
 
         <div v-if="loading" class="text-center pa-8">
           <v-progress-circular indeterminate color="primary" />

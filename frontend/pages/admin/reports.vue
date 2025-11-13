@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { usePeriods } from '~/composables/usePeriods'
 import { useMessages } from '~/composables/useMessages'
 import { useApi } from '~/composables/useApi'
@@ -83,7 +83,7 @@ watch(selectedPeriod, () => {
 
     <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-4" />
 
-    <AlertMessage v-model="errorMsg" type="error" :message="errorMsg" />
+    <AlertMessage type="error" :message="errorMsg" @clear="errorMsg = ''" />
 
     <v-card v-if="reportData && !loading">
       <v-card-title>สรุปภาพรวม</v-card-title>

@@ -21,14 +21,21 @@ const summary = computed(() => {
 })
 
 async function fetchTasks() {
-  if (!selectedPeriod.value) return
+  if (!selectedPeriod.value) {
+    console.warn('⚠️ No period selected')
+    return
+  }
 
   loading.value = true
   setError('')
   try {
+    console.log('🔍 Fetching tasks for period:', selectedPeriod.value)
     const res = await fetchData(`/api/assignments/mine?period_id=${selectedPeriod.value}`)
+    console.log('📋 Tasks response:', res)
+    console.log('📊 Tasks count:', res.items?.length || 0)
     tasks.value = res.items || []
   } catch (e) {
+    console.error('❌ Fetch tasks error:', e)
     setError(e.data?.message || e.message || 'Load failed')
   } finally {
     loading.value = false
@@ -48,8 +55,15 @@ function getStatusText(status) {
 }
 
 onMounted(async () => {
+  console.log('🚀 Evaluator tasks page mounted')
   await fetchPeriods(true)
-  if (selectedPeriod.value) fetchTasks()
+  console.log('📅 Periods loaded:', periods.value)
+  console.log('🎯 Selected period:', selectedPeriod.value)
+  if (selectedPeriod.value) {
+    fetchTasks()
+  } else {
+    console.warn('⚠️ No periods available or no period selected')
+  }
 })
 
 watch(selectedPeriod, fetchTasks)
@@ -136,6 +150,11 @@ watch(selectedPeriod, fetchTasks)
         <div v-else class="text-center pa-8">
           <v-icon size="64" color="grey">mdi-briefcase-outline</v-icon>
           <div class="text-subtitle-1 mt-2">ไม่มีงานที่ได้รับมอบหมาย</div>
+          <div class="text-caption text-grey mt-2">
+            Period ที่เลือก: {{ selectedPeriod }}
+            <br>
+            เปิด Console (F12) เพื่อดู debug logs
+          </div>
         </div>
       </v-card-text>
     </v-card>
